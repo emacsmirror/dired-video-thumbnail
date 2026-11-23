@@ -25,6 +25,7 @@
 - *Sorting* - Sort videos by name, date, size, or duration
 - *Filtering* - Filter videos by name pattern, duration range, or file size
 - *Recursive search* - Browse videos across subdirectories with optional auto-recursive mode
+- *Per-directory settings* - Sort order, filters and thumbnail height are remembered per directory in =.dir-locals.el=
 - *Transient menu* - Comprehensive command menu accessible via =.= or =C-c .=
 
 * Screenshots / Demos
@@ -396,6 +397,22 @@ Set the default sort criteria and order:
 (setq dired-video-thumbnail-sort-by 'name)       ;; Options: name, date, size, duration
 (setq dired-video-thumbnail-sort-order 'ascending) ;; Options: ascending, descending
 #+end_src
+
+** Per-Directory Settings
+
+Sort order, filters and the thumbnail display height are remembered per directory. Changing them in a thumbnail buffer writes the choice into that directory's =.dir-locals.el= (under the nil class, merged with any existing entries), and opening the directory restores it. Only the package's own variables are ever written.
+
+#+begin_src emacs-lisp
+(setq dired-video-thumbnail-save-dir-settings t)   ;; Remember choices per directory (default)
+
+;; Directory-wide defaults for directories without a stored value
+(setq dired-video-thumbnail-default-filter
+      '(:name "holiday" :duration-min 30 :duration-max 600
+        :size-min 1048576 :size-max nil))
+(setq dired-video-thumbnail-default-display-height 200)
+#+end_src
+
+Set =dired-video-thumbnail-save-dir-settings= to nil to keep sort, filter and size choices session-local.
 
 ** Recursive Search
 

@@ -139,12 +139,71 @@ Set to nil to use `browse-url-xdg-open' or system default."
                  (const :tag "Date modified" date)
                  (const :tag "Size" size)
                  (const :tag "Duration" duration))
+  :safe (lambda (value) (memq value '(name date size duration)))
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-sort-order 'ascending
   "Default sort order for thumbnails."
   :type '(choice (const :tag "Ascending" ascending)
                  (const :tag "Descending" descending))
+  :safe (lambda (value) (memq value '(ascending descending)))
+  :group 'dired-video-thumbnail)
+
+(defun dired-video-thumbnail--filter-plist-p (value)
+  "Return non-nil if VALUE is nil or a valid filter plist.
+A valid plist has the form (:name REGEXP :duration-min SECONDS
+:duration-max SECONDS :size-min BYTES :size-max BYTES), where each
+value may be nil."
+  (or (null value)
+      (and (listp value)
+           (zerop (mod (length value) 2))
+           (let ((name (plist-get value :name))
+                 (dmin (plist-get value :duration-min))
+                 (dmax (plist-get value :duration-max))
+                 (smin (plist-get value :size-min))
+                 (smax (plist-get value :size-max)))
+             (and (or (null name) (stringp name))
+                  (or (null dmin) (natnump dmin))
+                  (or (null dmax) (natnump dmax))
+                  (or (null smin) (natnump smin))
+                  (or (null smax) (natnump smax)))))))
+
+(defcustom dired-video-thumbnail-default-filter nil
+  "Default name/duration/size filter, as a plist or nil for no filter.
+The plist has the form (:name REGEXP :duration-min SECONDS
+:duration-max SECONDS :size-min BYTES :size-max BYTES), where each
+value may be nil.  This is normally managed automatically: changing
+the filter in a thumbnail buffer stores the value in that directory's
+`.dir-locals.el' (see `dired-video-thumbnail-save-dir-settings'), and
+opening the directory restores it."
+  :type '(choice (const :tag "No filter" nil)
+                 (sexp :tag "Filter plist"))
+  :safe #'dired-video-thumbnail--filter-plist-p
+  :group 'dired-video-thumbnail)
+
+(defcustom dired-video-thumbnail-default-display-height nil
+  "Default thumbnail display height in pixels, or nil for the global value.
+This is normally managed automatically: resizing with the `+' and `-'
+commands stores the size in that directory's `.dir-locals.el' (see
+`dired-video-thumbnail-save-dir-settings'), and opening the directory
+restores it."
+  :type '(choice (const :tag "Global value" nil)
+                 (integer :tag "Pixels"))
+  :safe (lambda (value)
+          (or (null value)
+              (and (natnump value) (<= 32 value 1024))))
+  :group 'dired-video-thumbnail)
+
+(defcustom dired-video-thumbnail-save-dir-settings t
+  "Whether to remember sort, filter and display-height choices.
+When non-nil, changing the sort order, the filter or the thumbnail
+display height in a thumbnail buffer writes the choice into that
+directory's `.dir-locals.el' (under the nil class, merged with any
+existing entries), and opening the directory restores it.  Only the
+package's own variables are ever written; other entries are left
+untouched.  Set to nil to keep such choices session-local."
+  :type 'boolean
+  :safe #'booleanp
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-recursive nil
@@ -256,13 +315,13 @@ queried again.")
 (defvar dired-video-thumbnail--info-max-processes 4
   "Maximum number of concurrent video-info query processes.")
 
-(defvar dired-video-thumbnail--current-videos nil
+(defvar-local dired-video-thumbnail--current-videos nil
   "List of videos in the current thumbnail buffer.")
 
-(defvar dired-video-thumbnail--all-videos nil
+(defvar-local dired-video-thumbnail--all-videos nil
   "List of all videos before filtering (buffer-local).")
 
-(defvar dired-video-thumbnail--source-dir nil
+(defvar-local dired-video-thumbnail--source-dir nil
   "Source directory for the current thumbnail buffer.")
 
 (defvar-local dired-video-thumbnail--dired-buffer nil
@@ -291,6 +350,12 @@ queried again.")
 
 (defvar-local dired-video-thumbnail--filter-size-max nil
   "Maximum size filter in bytes.")
+
+(defvar-local dired-video-thumbnail--display-height nil
+  "Buffer-local thumbnail display height override, or nil for the global value.
+Marked permanent-local so a directory's remembered height survives the
+mode reset performed while rebuilding the thumbnail buffer.")
+(put 'dired-video-thumbnail--display-height 'permanent-local t)
 
 (defvar-local dired-video-thumbnail--recursive nil
   "Whether current buffer is showing videos recursively.")
@@ -862,6 +927,179 @@ without taking space away from the thumbnails."
         (mapconcat #'identity (nreverse filters) " ")
       "")))
 
+;;; Per-directory settings (.dir-locals.el)
+
+(defconst dired-video-thumbnail--dir-setting-vars
+  '(dired-video-thumbnail-sort-by
+    dired-video-thumbnail-sort-order
+    dired-video-thumbnail-default-filter
+    dired-video-thumbnail-default-display-height)
+  "Variables managed in a directory's `.dir-locals.el' (nil class).
+Only these variables are ever read or written there by this package;
+any other entries are left untouched.")
+
+(defun dired-video-thumbnail--valid-dir-setting-p (var value)
+  "Return non-nil if VALUE is acceptable for directory setting VAR.
+The file is read explicitly (Emacs safety checks are bypassed), so
+values are validated strictly here before being applied."
+  (pcase var
+    ('dired-video-thumbnail-sort-by
+     (memq value '(name date size duration)))
+    ('dired-video-thumbnail-sort-order
+     (memq value '(ascending descending)))
+    ('dired-video-thumbnail-default-filter
+     (dired-video-thumbnail--filter-plist-p value))
+    ('dired-video-thumbnail-default-display-height
+     (or (null value)
+         (and (natnump value) (<= 32 value 1024))))
+    (_ nil)))
+
+(defun dired-video-thumbnail--read-dir-settings (&optional dir)
+  "Return managed settings from DIR's `.dir-locals.el'.
+DIR defaults to `dired-video-thumbnail--source-dir'.  Only the nil
+class is consulted.  The result is an alist of (VAR . VALUE) for the
+variables in `dired-video-thumbnail--dir-setting-vars' that are
+present with valid values; invalid or absent entries are skipped.
+Nothing is read when `enable-local-variables' is nil.  Never signals
+an error."
+  (let ((dir (or dir dired-video-thumbnail--source-dir))
+        (result nil))
+    (when (and dir enable-local-variables)
+      (let ((file (expand-file-name dir-locals-file dir)))
+        (when (file-readable-p file)
+          (condition-case nil
+              (with-temp-buffer
+                (insert-file-contents file)
+                (let* ((all (read (current-buffer)))
+                       (entry (and (listp all) (assq nil all))))
+                  (dolist (var dired-video-thumbnail--dir-setting-vars)
+                    (let ((cell (assq var (cdr entry))))
+                      (when cell
+                        (when (dired-video-thumbnail--valid-dir-setting-p
+                               var (cdr cell))
+                          (push (cons var (cdr cell)) result)))))))
+            (error nil)))))
+    (nreverse result)))
+
+(defun dired-video-thumbnail--write-dir-locals (dir settings)
+  "Merge SETTINGS ((VAR . VALUE) ...) into DIR's `.dir-locals.el'.
+SETTINGS entries are stored under the nil class; every other class
+and variable is preserved, as are any leading comment lines.  A
+short header comment is added when the file is created."
+  (let* ((file (expand-file-name dir-locals-file dir))
+         (new-file (not (file-exists-p file)))
+         (prefix (if new-file
+                     ";;; Directory Local Variables\n;;; For more information see (info \"(emacs) Directory Variables\")\n\n"
+                   (condition-case nil
+                       (with-temp-buffer
+                         (insert-file-contents file)
+                         (goto-char (point-min))
+                         (while (and (not (eobp))
+                                     (looking-at-p "[ \t]*\\(;\\|$\\)"))
+                           (forward-line 1))
+                         (let ((s (buffer-substring-no-properties (point-min) (point))))
+                           (if (string-empty-p s)
+                               ";;; Directory Local Variables\n;;; For more information see (info \"(emacs) Directory Variables\")\n\n"
+                             s)))
+                     (error ""))))
+         (all (if new-file
+                  nil
+                (condition-case nil
+                    (with-temp-buffer
+                      (insert-file-contents file)
+                      (let ((sexp (read (current-buffer))))
+                        (and (listp sexp) sexp)))
+                  (error nil))))
+         (entry (assq nil all)))
+    (unless entry
+      (setq entry (cons nil nil))
+      (push entry all))
+    (dolist (kv settings)
+      (let ((cell (assq (car kv) (cdr entry))))
+        (if cell
+            (setcdr cell (cdr kv))
+          (setcdr entry (append (cdr entry) (list (cons (car kv) (cdr kv))))))))
+    (with-temp-file file
+      (insert prefix)
+      (unless (string-suffix-p "\n" prefix)
+        (insert "\n"))
+      (pp all (current-buffer)))))
+
+(defun dired-video-thumbnail--save-dir-settings (settings)
+  "Remember SETTINGS ((VAR . VALUE) ...) in the source directory.
+The values are merged into the `.dir-locals.el' file in
+`dired-video-thumbnail--source-dir'.  Does nothing when
+`dired-video-thumbnail-save-dir-settings' is nil, when
+`enable-local-variables' is nil, when there is no source directory,
+or when the file is not writable.  Never signals an error; failures
+are reported with `message'."
+  (when (and dired-video-thumbnail-save-dir-settings
+             enable-local-variables
+             dired-video-thumbnail--source-dir
+             settings)
+    (let* ((dir (expand-file-name dired-video-thumbnail--source-dir))
+           (file (expand-file-name dir-locals-file dir)))
+      (if (not (file-writable-p file))
+          (message "Directory settings not saved (not writable): %s" file)
+        (condition-case err
+            (progn
+              (dired-video-thumbnail--write-dir-locals dir settings)
+              (message "Remembered %s for %s"
+                       (mapconcat (lambda (kv)
+                                    (format "%s=%s" (car kv) (cdr kv)))
+                                  settings ", ")
+                       (abbreviate-file-name dir)))
+          (error (message "Could not save directory settings: %s"
+                          (error-message-string err))))))))
+
+(defun dired-video-thumbnail--apply-dir-settings ()
+  "Apply per-directory sort, filter and display-height settings.
+Reads the `.dir-locals.el' file in
+`dired-video-thumbnail--source-dir' and initialises the buffer-local
+state from it, falling back to the global defaults for anything not
+stored."
+  (let ((settings (dired-video-thumbnail--read-dir-settings)))
+    (setq dired-video-thumbnail--sort-by
+          (or (cdr (assq 'dired-video-thumbnail-sort-by settings))
+              dired-video-thumbnail-sort-by))
+    (setq dired-video-thumbnail--sort-order
+          (or (cdr (assq 'dired-video-thumbnail-sort-order settings))
+              dired-video-thumbnail-sort-order))
+    (setq dired-video-thumbnail--display-height
+          (cdr (assq 'dired-video-thumbnail-default-display-height settings)))
+    (let ((filter (cdr (assq 'dired-video-thumbnail-default-filter settings))))
+      (setq dired-video-thumbnail--filter-name
+            (let ((name (plist-get filter :name)))
+              (and (stringp name) (not (string-empty-p name)) name)))
+      (setq dired-video-thumbnail--filter-duration-min
+            (let ((v (plist-get filter :duration-min)))
+              (and (natnump v) v)))
+      (setq dired-video-thumbnail--filter-duration-max
+            (let ((v (plist-get filter :duration-max)))
+              (and (natnump v) v)))
+      (setq dired-video-thumbnail--filter-size-min
+            (let ((v (plist-get filter :size-min)))
+              (and (natnump v) v)))
+      (setq dired-video-thumbnail--filter-size-max
+            (let ((v (plist-get filter :size-max)))
+              (and (natnump v) v))))))
+
+(defun dired-video-thumbnail--save-current-filter ()
+  "Persist the current name/duration/size filter to the source directory."
+  (dired-video-thumbnail--save-dir-settings
+   (list (cons 'dired-video-thumbnail-default-filter
+               (if (or dired-video-thumbnail--filter-name
+                       dired-video-thumbnail--filter-duration-min
+                       dired-video-thumbnail--filter-duration-max
+                       dired-video-thumbnail--filter-size-min
+                       dired-video-thumbnail--filter-size-max)
+                   (list :name dired-video-thumbnail--filter-name
+                         :duration-min dired-video-thumbnail--filter-duration-min
+                         :duration-max dired-video-thumbnail--filter-duration-max
+                         :size-min dired-video-thumbnail--filter-size-min
+                         :size-max dired-video-thumbnail--filter-size-max)
+                 nil)))))
+
 ;;; Thumbnail generation
 
 (defun dired-video-thumbnail--generate-sync (video-file)
@@ -917,6 +1155,13 @@ Call CALLBACK with the thumbnail path when done, or nil on failure."
 
 ;;; Display functions
 
+(defun dired-video-thumbnail--current-display-height ()
+  "Return the effective thumbnail display height in pixels.
+Uses the buffer-local per-directory override when set, otherwise the
+global `dired-video-thumbnail-display-height'."
+  (or dired-video-thumbnail--display-height
+      dired-video-thumbnail-display-height))
+
 (defun dired-video-thumbnail--create-placeholder ()
   "Create a placeholder image for videos without thumbnails."
   (let* ((size dired-video-thumbnail-size)
@@ -930,7 +1175,7 @@ Call CALLBACK with the thumbnail path when done, or nil on failure."
                 </svg>"
                size size)))
     (create-image svg 'svg t
-                  :height dired-video-thumbnail-display-height)))
+                  :height (dired-video-thumbnail--current-display-height))))
 
 (defun dired-video-thumbnail--create-error-placeholder ()
   "Create a placeholder image for failed thumbnails."
@@ -945,13 +1190,13 @@ Call CALLBACK with the thumbnail path when done, or nil on failure."
                 </svg>"
                size size)))
     (create-image svg 'svg t
-                  :height dired-video-thumbnail-display-height)))
+                  :height (dired-video-thumbnail--current-display-height))))
 
 (defun dired-video-thumbnail--create-bordered-image (image-path marked)
   "Create an image from IMAGE-PATH with optional border if MARKED."
   (if (not marked)
       (create-image image-path nil nil
-                    :height dired-video-thumbnail-display-height)
+                    :height (dired-video-thumbnail--current-display-height))
     ;; Create SVG wrapper with border around the image
     (let* ((border-width dired-video-thumbnail-mark-border-width)
            (border-color (face-foreground 'dired-video-thumbnail-mark nil t))
@@ -974,7 +1219,7 @@ Call CALLBACK with the thumbnail path when done, or nil on failure."
                  border-width border-width size size
                  image-data)))
       (create-image svg 'svg t
-                    :height dired-video-thumbnail-display-height))))
+                    :height (dired-video-thumbnail--current-display-height)))))
 
 (defun dired-video-thumbnail--insert-thumbnail (video-file &optional thumb-path marked)
   "Insert thumbnail for VIDEO-FILE at point.
@@ -1347,8 +1592,14 @@ is automatically enabled."
     (message "Found %d video files%s"
              (length videos)
              (if recursive-p " (recursive)" ""))
-    (dired-video-thumbnail--display-buffer videos source-dir dired-buf recursive-p)
-    (dired-video-thumbnail--generate-missing videos)))
+    (let ((buf (dired-video-thumbnail--display-buffer
+                videos source-dir dired-buf recursive-p)))
+      ;; Restore the sort, filter and display-height choices remembered
+      ;; for this directory, then rebuild the grid with them applied.
+      (with-current-buffer buf
+        (dired-video-thumbnail--apply-dir-settings)
+        (dired-video-thumbnail-refresh))
+      (dired-video-thumbnail--generate-missing videos))))
 
 ;;;###autoload
 (defun dired-video-thumbnail-recursive ()
@@ -1430,15 +1681,21 @@ is automatically enabled."
 (defun dired-video-thumbnail-increase-size ()
   "Increase thumbnail display size."
   (interactive)
-  (setq dired-video-thumbnail-display-height
-        (+ (or dired-video-thumbnail-display-height 150) 25))
+  (setq dired-video-thumbnail--display-height
+        (+ (dired-video-thumbnail--current-display-height) 25))
+  (dired-video-thumbnail--save-dir-settings
+   (list (cons 'dired-video-thumbnail-default-display-height
+               dired-video-thumbnail--display-height)))
   (dired-video-thumbnail-refresh))
 
 (defun dired-video-thumbnail-decrease-size ()
   "Decrease thumbnail display size."
   (interactive)
-  (setq dired-video-thumbnail-display-height
-        (max 50 (- (or dired-video-thumbnail-display-height 150) 25)))
+  (setq dired-video-thumbnail--display-height
+        (max 50 (- (dired-video-thumbnail--current-display-height) 25)))
+  (dired-video-thumbnail--save-dir-settings
+   (list (cons 'dired-video-thumbnail-default-display-height
+               dired-video-thumbnail--display-height)))
   (dired-video-thumbnail-refresh))
 
 (defun dired-video-thumbnail-refresh ()
@@ -1893,6 +2150,9 @@ display and the associated Dired buffer are refreshed afterwards."
                                  '("name" "date" "size" "duration")
                                  nil t)))
     (setq dired-video-thumbnail--sort-by (intern choice))
+    (dired-video-thumbnail--save-dir-settings
+     (list (cons 'dired-video-thumbnail-sort-by
+                 dired-video-thumbnail--sort-by)))
     (dired-video-thumbnail--apply-sort-and-filter)
     (message "Sorted by %s %s"
              choice
@@ -1905,6 +2165,9 @@ display and the associated Dired buffer are refreshed afterwards."
         (if (eq dired-video-thumbnail--sort-order 'ascending)
             'descending
           'ascending))
+  (dired-video-thumbnail--save-dir-settings
+   (list (cons 'dired-video-thumbnail-sort-order
+               dired-video-thumbnail--sort-order)))
   (dired-video-thumbnail--apply-sort-and-filter)
   (message "Sort order: %s"
            (if (eq dired-video-thumbnail--sort-order 'ascending)
@@ -1915,6 +2178,9 @@ display and the associated Dired buffer are refreshed afterwards."
   "Sort thumbnails by filename."
   (interactive)
   (setq dired-video-thumbnail--sort-by 'name)
+  (dired-video-thumbnail--save-dir-settings
+   (list (cons 'dired-video-thumbnail-sort-by
+               dired-video-thumbnail--sort-by)))
   (dired-video-thumbnail--apply-sort-and-filter)
   (message "Sorted by name"))
 
@@ -1922,6 +2188,9 @@ display and the associated Dired buffer are refreshed afterwards."
   "Sort thumbnails by modification date."
   (interactive)
   (setq dired-video-thumbnail--sort-by 'date)
+  (dired-video-thumbnail--save-dir-settings
+   (list (cons 'dired-video-thumbnail-sort-by
+               dired-video-thumbnail--sort-by)))
   (dired-video-thumbnail--apply-sort-and-filter)
   (message "Sorted by date"))
 
@@ -1929,6 +2198,9 @@ display and the associated Dired buffer are refreshed afterwards."
   "Sort thumbnails by file size."
   (interactive)
   (setq dired-video-thumbnail--sort-by 'size)
+  (dired-video-thumbnail--save-dir-settings
+   (list (cons 'dired-video-thumbnail-sort-by
+               dired-video-thumbnail--sort-by)))
   (dired-video-thumbnail--apply-sort-and-filter)
   (message "Sorted by size"))
 
@@ -1936,6 +2208,9 @@ display and the associated Dired buffer are refreshed afterwards."
   "Sort thumbnails by video duration."
   (interactive)
   (setq dired-video-thumbnail--sort-by 'duration)
+  (dired-video-thumbnail--save-dir-settings
+   (list (cons 'dired-video-thumbnail-sort-by
+               dired-video-thumbnail--sort-by)))
   (dired-video-thumbnail--apply-sort-and-filter)
   (message "Sorted by duration"))
 
@@ -1948,6 +2223,7 @@ display and the associated Dired buffer are refreshed afterwards."
     (if (string-empty-p regexp)
         (setq dired-video-thumbnail--filter-name nil)
       (setq dired-video-thumbnail--filter-name regexp))
+    (dired-video-thumbnail--save-current-filter)
     (dired-video-thumbnail--apply-sort-and-filter)
     (message "Name filter: %s" (or dired-video-thumbnail--filter-name "none"))))
 
@@ -1960,6 +2236,7 @@ display and the associated Dired buffer are refreshed afterwards."
          (max-secs (dired-video-thumbnail--parse-duration max-str)))
     (setq dired-video-thumbnail--filter-duration-min min-secs)
     (setq dired-video-thumbnail--filter-duration-max max-secs)
+    (dired-video-thumbnail--save-current-filter)
     (dired-video-thumbnail--apply-sort-and-filter)
     (message "Duration filter: %s to %s"
              (if min-secs (dired-video-thumbnail--format-duration min-secs) "0")
@@ -1987,6 +2264,7 @@ Accepts formats like: 90, 1:30, 1:30:00"
           (and min-mb (* min-mb 1024 1024)))
     (setq dired-video-thumbnail--filter-size-max
           (and max-mb (* max-mb 1024 1024)))
+    (dired-video-thumbnail--save-current-filter)
     (dired-video-thumbnail--apply-sort-and-filter)
     (message "Size filter: %s to %s"
              (if min-mb (format "%.0f MB" min-mb) "0")
@@ -2000,6 +2278,7 @@ Accepts formats like: 90, 1:30, 1:30:00"
   (setq dired-video-thumbnail--filter-duration-max nil)
   (setq dired-video-thumbnail--filter-size-min nil)
   (setq dired-video-thumbnail--filter-size-max nil)
+  (dired-video-thumbnail--save-current-filter)
   (dired-video-thumbnail--apply-sort-and-filter)
   (message "All filters cleared"))
 

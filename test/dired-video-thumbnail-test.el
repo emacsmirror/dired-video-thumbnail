@@ -771,6 +771,85 @@
           (should (equal dired-video-thumbnail--all-videos (list file2))))
       (delete-directory source t))))
 
+;;; Tests for per-directory settings
+
+(ert-deftest dired-video-thumbnail-test-filter-plist-p ()
+  "Test validation of filter plists."
+  (should (dired-video-thumbnail--filter-plist-p nil))
+  (should (dired-video-thumbnail--filter-plist-p
+           '(:name "x" :duration-min 5 :duration-max 60
+             :size-min 100 :size-max 1000)))
+  (should (dired-video-thumbnail--filter-plist-p '(:name nil)))
+  (should-not (dired-video-thumbnail--filter-plist-p '(:name 5)))
+  (should-not (dired-video-thumbnail--filter-plist-p '(:size-min "big")))
+  (should-not (dired-video-thumbnail--filter-plist-p '(:name))))
+
+(ert-deftest dired-video-thumbnail-test-dir-locals-round-trip ()
+  "Test writing and reading managed directory settings."
+  (let* ((dir (make-temp-file "video-dirlocals" t))
+         (file (expand-file-name ".dir-locals.el" dir)))
+    (unwind-protect
+        (progn
+          ;; Start with an unrelated class and variable.
+          (with-temp-file file
+            (insert ";; leading comment\n"
+                    "((nil . ((some-other-var . keep-me)))\n"
+                    " (\"sub\" . ((another-var . 42))))\n"))
+          (let ((dired-video-thumbnail--source-dir dir))
+            (dired-video-thumbnail--save-dir-settings
+             '((dired-video-thumbnail-sort-by . date)
+               (dired-video-thumbnail-sort-order . descending)))
+            (should (equal (dired-video-thumbnail--read-dir-settings dir)
+                           '((dired-video-thumbnail-sort-by . date)
+                             (dired-video-thumbnail-sort-order . descending))))
+            ;; Unrelated entries survive.
+            (with-temp-buffer
+              (insert-file-contents file)
+              (let ((all (read (current-buffer))))
+                (should (equal (cdr (assq 'some-other-var (cdr (assq nil all))))
+                               'keep-me))
+                (should (assoc "sub" all))))))
+      (delete-directory dir t))))
+
+(ert-deftest dired-video-thumbnail-test-apply-dir-settings ()
+  "Test applying per-directory settings to buffer-local state."
+  (let* ((dir (make-temp-file "video-apply-dirlocals" t))
+         (file (expand-file-name ".dir-locals.el" dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file file
+            (insert "((nil . ((dired-video-thumbnail-sort-by . size)\n"
+                    "         (dired-video-thumbnail-sort-order . descending)\n"
+                    "         (dired-video-thumbnail-default-display-height . 200)\n"
+                    "         (dired-video-thumbnail-default-filter\n"
+                    "          :name \"holiday\" :duration-min 30 :duration-max 600\n"
+                    "          :size-min 1024 :size-max 1048576))))\n"))
+          (with-temp-buffer
+            (setq dired-video-thumbnail--source-dir dir)
+            (dired-video-thumbnail--apply-dir-settings)
+            (should (eq dired-video-thumbnail--sort-by 'size))
+            (should (eq dired-video-thumbnail--sort-order 'descending))
+            (should (= dired-video-thumbnail--display-height 200))
+            (should (equal dired-video-thumbnail--filter-name "holiday"))
+            (should (= dired-video-thumbnail--filter-duration-min 30))
+            (should (= dired-video-thumbnail--filter-duration-max 600))
+            (should (= dired-video-thumbnail--filter-size-min 1024))
+            (should (= dired-video-thumbnail--filter-size-max 1048576))))
+      (delete-directory dir t))))
+
+(ert-deftest dired-video-thumbnail-test-save-dir-settings-disabled ()
+  "Test that saving is skipped when the option is nil."
+  (let* ((dir (make-temp-file "video-dirlocals-off" t))
+         (dired-video-thumbnail--source-dir dir)
+         (dired-video-thumbnail-save-dir-settings nil))
+    (unwind-protect
+        (progn
+          (dired-video-thumbnail--save-dir-settings
+           '((dired-video-thumbnail-sort-by . date)))
+          (should-not (file-exists-p
+                       (expand-file-name ".dir-locals.el" dir))))
+      (delete-directory dir t))))
+
 ;;; Tests for refresh commands
 
 (ert-deftest dired-video-thumbnail-test-re-scan ()

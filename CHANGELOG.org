@@ -13,6 +13,10 @@ project's main git repository: [[https://github.com/captainflasmr/dired-video-th
 
 ** Unreleased
 
+Per-directory settings
+
+Sort order, filters and the thumbnail display height are now remembered per directory in that directory's `.dir-locals.el` and restored when the gallery is reopened. Only the package's own variables are written; other entries and classes in the file are preserved. Two new options, `dired-video-thumbnail-default-filter` and `dired-video-thumbnail-default-display-height`, provide directory-wide defaults, and `dired-video-thumbnail-save-dir-settings` turns persistence off. The gallery's video lists are now buffer-local.
+
 Keybinding alignment (breaking change)
 
 `g` now re-scans the source directory and refreshes the display, matching Dired's `g`, and `G` performs a hard refresh that clears the cached thumbnails for the gallery, re-scans and regenerates them. The single-thumbnail regenerate command moved to `C-r`; the regenerate-all command remains available as `C-R` in the transient menu. The transient display submenu moved from `v` to `V`, freeing `v` for move-to-directory. Existing keybindings for `g` and `G` therefore change behaviour.
