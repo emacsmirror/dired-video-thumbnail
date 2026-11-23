@@ -40,6 +40,24 @@
 
 * Whats New
 
+** <2026-11-23 Mon> 0.4.0
+
+Feature parity with =dired-image-thumbnail=
+
+This release brings =dired-video-thumbnail= in line with =dired-image-thumbnail=:
+
+- *Faster marking* - marked files are collected in one pass over Dired and cached; marking repaints only the affected thumbnail
+- *Enhanced header line* - video counts, marked count, directory, size, resolution, duration, sort order and filters, with a theme-safe face; the buffer holds only thumbnails
+- *Asynchronous metadata* - resolution and duration are queried with ffprobe in the background, up to four at a time
+- *Current-thumbnail highlight* - the selected thumbnail is outlined and the cursor recoloured
+- *File operations* - deletion moves files to the system trash; =C-d= deletes and stays on the next thumbnail; =v= moves marked videos to a directory; =dired-video-thumbnail-auto-accept= skips confirmations
+- *Navigation* - =C-l= re-centres the grid; snapping prefers the nearest preceding thumbnail
+- *Per-directory settings* - sort order, filters and display height are remembered in each directory's =.dir-locals.el=
+- *Per-directory galleries* - each directory gets its own thumbnail buffer, reused on reopen
+- *File validation* - minimum file size plus optional container signature checks
+
+Keybinding changes: =g= now re-scans and refreshes, =G= performs a hard refresh (clear cache, regenerate), and =C-r= regenerates the thumbnail at point.
+
 ** <2025-12-15 Mon> 0.3.0
 
 Added transient menu interface

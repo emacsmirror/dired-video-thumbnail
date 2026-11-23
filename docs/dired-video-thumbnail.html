@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
-<!-- Created by GNU Texinfo 7.2, https://www.gnu.org/software/texinfo/ -->
+<!-- Created by GNU Texinfo 7.3, https://www.gnu.org/software/texinfo/ -->
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<!-- This manual is for dired-video-thumbnail (version 0.1.0).
+<!-- This manual is for dired-video-thumbnail (version 0.4.0).
 
 Copyright © 2025 James Dyer
 
@@ -27,16 +27,15 @@ Texts. A copy of the license is included in the section entitled
 <link href="#SEC_Contents" rel="contents" title="Table of Contents">
 <link href="#Introduction" rel="next" title="Introduction">
 <style type="text/css">
-<!--
 a.copiable-link {visibility: hidden; text-decoration: none; line-height: 0em}
 div.example {margin-left: 3.2em}
+dt.def-line {font-size: 1rem}
 kbd.kbd {font-style: oblique}
 kbd.key {font-style: normal}
 span:hover a.copiable-link {visibility: visible}
-strong.def-name {font-family: monospace; font-weight: bold; font-size: larger}
+strong.def-name {font-family: monospace; font-weight: bold}
 ul.mark-bullet {list-style-type: disc}
 ul.toc-numbered-mark {list-style: none}
--->
 </style>
 
 
@@ -49,16 +48,14 @@ ul.toc-numbered-mark {list-style: none}
 
 
 <div class="top-level-extent" id="Top">
-<div class="nav-panel">
-<p>
-Next: <a href="#Introduction" accesskey="n" rel="next">Introduction</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Introduction" rel="next">Introduction</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h1 class="top" id="Dired-Video-Thumbnail"><span>Dired Video Thumbnail<a class="copiable-link" href="#Dired-Video-Thumbnail"> &para;</a></span></h1>
 
 <p>This manual describes dired-video-thumbnail, an Emacs package that provides
 image-dired style thumbnail viewing for video files.
 </p>
-<p>This manual is for dired-video-thumbnail (version 0.1.0).
+<p>This manual is for dired-video-thumbnail (version 0.4.0).
 </p>
 <p>Copyright &copy; 2025 James Dyer
 </p>
@@ -96,7 +93,10 @@ Texts. A copy of the license is included in the section entitled
   <ul class="toc-numbered-mark">
     <li><a id="toc-Basic-Usage" href="#Basic-Usage">3.1 Basic Usage</a></li>
     <li><a id="toc-Working-with-Marked-Files" href="#Working-with-Marked-Files">3.2 Working with Marked Files</a></li>
-    <li><a id="toc-Suggested-Keybinding" href="#Suggested-Keybinding">3.3 Suggested Keybinding</a></li>
+    <li><a id="toc-Recursive-Mode" href="#Recursive-Mode">3.3 Recursive Mode</a>
+    <ul class="toc-numbered-mark">
+      <li><a id="toc-Suggested-Keybinding" href="#Suggested-Keybinding">3.3.1 Suggested Keybinding</a></li>
+    </ul></li>
     <li><a id="toc-Header-Line-Information" href="#Header-Line-Information">3.4 Header Line Information</a></li>
   </ul></li>
   <li><a id="toc-Keybindings" href="#Keybindings">4 Keybindings</a>
@@ -105,9 +105,12 @@ Texts. A copy of the license is included in the section entitled
     <li><a id="toc-Playback-Commands" href="#Playback-Commands">4.2 Playback Commands</a></li>
     <li><a id="toc-Marking-Commands" href="#Marking-Commands">4.3 Marking Commands</a></li>
     <li><a id="toc-Deletion-Commands" href="#Deletion-Commands">4.4 Deletion Commands</a></li>
-    <li><a id="toc-Display-Commands" href="#Display-Commands">4.5 Display Commands</a></li>
-    <li><a id="toc-Sorting-Commands" href="#Sorting-Commands">4.6 Sorting Commands</a></li>
-    <li><a id="toc-Filtering-Commands" href="#Filtering-Commands">4.7 Filtering Commands</a></li>
+    <li><a id="toc-Moving-Commands" href="#Moving-Commands">4.5 Moving Commands</a></li>
+    <li><a id="toc-Display-Commands" href="#Display-Commands">4.6 Display Commands</a></li>
+    <li><a id="toc-Sorting-Commands" href="#Sorting-Commands">4.7 Sorting Commands</a></li>
+    <li><a id="toc-Filtering-Commands" href="#Filtering-Commands">4.8 Filtering Commands</a></li>
+    <li><a id="toc-Help-Commands" href="#Help-Commands">4.9 Help Commands</a></li>
+    <li><a id="toc-Transient-Menu" href="#Transient-Menu">4.10 Transient Menu</a></li>
   </ul></li>
   <li><a id="toc-Customization" href="#Customization">5 Customization</a>
   <ul class="toc-numbered-mark">
@@ -115,14 +118,26 @@ Texts. A copy of the license is included in the section entitled
     <li><a id="toc-Cache-Settings" href="#Cache-Settings">5.2 Cache Settings</a></li>
     <li><a id="toc-Video-Settings" href="#Video-Settings">5.3 Video Settings</a></li>
     <li><a id="toc-Mark-Appearance" href="#Mark-Appearance">5.4 Mark Appearance</a></li>
-    <li><a id="toc-Advanced-Settings" href="#Advanced-Settings">5.5 Advanced Settings</a></li>
+    <li><a id="toc-Current_002dThumbnail-Highlight" href="#Current_002dThumbnail-Highlight">5.5 Current-Thumbnail Highlight</a></li>
+    <li><a id="toc-Sorting-Settings" href="#Sorting-Settings">5.6 Sorting Settings</a></li>
+    <li><a id="toc-Per_002dDirectory-Settings" href="#Per_002dDirectory-Settings">5.7 Per-Directory Settings</a></li>
+    <li><a id="toc-Recursive-Settings" href="#Recursive-Settings">5.8 Recursive Settings</a></li>
+    <li><a id="toc-File-Validation" href="#File-Validation">5.9 File Validation</a></li>
+    <li><a id="toc-Confirmation" href="#Confirmation">5.10 Confirmation</a></li>
+    <li><a id="toc-Advanced-Settings" href="#Advanced-Settings">5.11 Advanced Settings</a>
+    <ul class="toc-numbered-mark">
+      <li><a id="toc-Example-Configuration" href="#Example-Configuration">5.11.1 Example Configuration</a></li>
+    </ul></li>
   </ul></li>
   <li><a id="toc-Common-Workflows" href="#Workflows">6 Common Workflows</a>
   <ul class="toc-numbered-mark">
     <li><a id="toc-Reviewing-and-Deleting-Unwanted-Videos" href="#Reviewing-and-Deleting-Unwanted-Videos">6.1 Reviewing and Deleting Unwanted Videos</a></li>
     <li><a id="toc-Selecting-Videos-for-Processing" href="#Selecting-Videos-for-Processing">6.2 Selecting Videos for Processing</a></li>
     <li><a id="toc-Quick-Video-Preview" href="#Quick-Video-Preview">6.3 Quick Video Preview</a></li>
-    <li><a id="toc-Organizing-Video-Collections" href="#Organizing-Video-Collections">6.4 Organizing Video Collections</a></li>
+    <li><a id="toc-Finding-Large-Videos" href="#Finding-Large-Videos">6.4 Finding Large Videos</a></li>
+    <li><a id="toc-Finding-Long-Videos" href="#Finding-Long-Videos">6.5 Finding Long Videos</a></li>
+    <li><a id="toc-Searching-by-Name-Pattern" href="#Searching-by-Name-Pattern">6.6 Searching by Name Pattern</a></li>
+    <li><a id="toc-Organizing-Video-Collections" href="#Organizing-Video-Collections">6.7 Organizing Video Collections</a></li>
   </ul></li>
   <li><a id="toc-Troubleshooting" href="#Troubleshooting">7 Troubleshooting</a>
   <ul class="toc-numbered-mark">
@@ -138,10 +153,8 @@ Texts. A copy of the license is included in the section entitled
 </div>
 <hr>
 <div class="chapter-level-extent" id="Introduction">
-<div class="nav-panel">
-<p>
-Next: <a href="#Installation" accesskey="n" rel="next">Installation</a>, Previous: <a href="#Top" accesskey="p" rel="prev">Dired Video Thumbnail</a>, Up: <a href="#Top" accesskey="u" rel="up">Dired Video Thumbnail</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Installation" rel="next">Installation</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Top" rel="prev">Dired Video Thumbnail</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Top" rel="up">Dired Video Thumbnail</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h2 class="chapter" id="Introduction-1"><span>1 Introduction<a class="copiable-link" href="#Introduction-1"> &para;</a></span></h2>
 
 <p><code class="code">dired-video-thumbnail</code> is an Emacs package that provides <code class="code">image-dired</code>
@@ -150,7 +163,7 @@ style thumbnail viewing for video files. It extracts thumbnails from videos usin
 browse and manage video collections directly from Emacs.
 </p>
 <ul class="mini-toc">
-<li><a href="#Features" accesskey="1">Features</a></li>
+<li><a href="#Features">Features</a></li>
 </ul>
 <div class="section-level-extent" id="Features">
 <h3 class="section"><span>1.1 Features<a class="copiable-link" href="#Features"> &para;</a></span></h3>
@@ -163,37 +176,46 @@ file changes
 in the background
 </li><li>Dired integration - marks sync bidirectionally with the associated dired buffer
 </li><li>Visual mark indication - marked thumbnails display a colored border (like <code class="code">image-dired</code>)
-</li><li>Dynamic header line - shows filename, dimensions, duration, and file size for the
-current video
+</li><li>Current-thumbnail highlight - the thumbnail at point is outlined with a theme-aware
+border, and the cursor is recolored to match
+</li><li>Dynamic header line - shows video counts, marked count, directory, filename,
+file size, dimensions, duration, sort order, and active filters
 </li><li>Click to play - open videos in your preferred external player
 </li><li>Cross-platform - works on Linux, macOS, and Windows
 </li><li>Resizable thumbnails - adjust thumbnail size on the fly
-</li><li>Recursive search - optionally search for videos in subdirectories
-</li><li>Sorting and filtering - organize videos by name, date, size, or duration
+</li><li>Sorting - sort videos by name, date, size, or duration with ascending/descending order
+</li><li>Filtering - filter videos by name pattern (regexp), duration range, or file size range
+</li><li>Recursive search - browse videos across subdirectories with optional auto-recursive mode
+</li><li>Per-directory settings - sort order, filters and thumbnail height are remembered in
+each directory&rsquo;s <samp class="file">.dir-locals.el</samp>
+</li><li>Per-directory galleries - each directory gets its own thumbnail buffer, so several
+galleries can stay open at once
+</li><li>Asynchronous metadata - resolution and duration are queried in the background, so
+large directories never block Emacs
+</li><li>File validation - empty or corrupt files are ignored by minimum size, with an
+optional container signature check
+</li><li>Trash-based deletion and move-to-directory for managing files from the gallery
+</li><li>Transient menu - comprehensive command menu accessible via <kbd class="kbd">.</kbd> or <kbd class="kbd">C-c .</kbd>
 </li></ul>
 
 <hr>
 </div>
 </div>
 <div class="chapter-level-extent" id="Installation">
-<div class="nav-panel">
-<p>
-Next: <a href="#Usage" accesskey="n" rel="next">Usage</a>, Previous: <a href="#Introduction" accesskey="p" rel="prev">Introduction</a>, Up: <a href="#Top" accesskey="u" rel="up">Dired Video Thumbnail</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Usage" rel="next">Usage</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Introduction" rel="prev">Introduction</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Top" rel="up">Dired Video Thumbnail</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h2 class="chapter" id="Installation-1"><span>2 Installation<a class="copiable-link" href="#Installation-1"> &para;</a></span></h2>
 
 
 <ul class="mini-toc">
-<li><a href="#Requirements" accesskey="1">Requirements</a></li>
-<li><a href="#Manual-Installation" accesskey="2">Manual Installation</a></li>
-<li><a href="#Package-Manager" accesskey="3">Installing via Package Managers</a></li>
+<li><a href="#Requirements">Requirements</a></li>
+<li><a href="#Manual-Installation">Manual Installation</a></li>
+<li><a href="#Package-Manager">Installing via Package Managers</a></li>
 </ul>
 <hr>
 <div class="section-level-extent" id="Requirements">
-<div class="nav-panel">
-<p>
-Next: <a href="#Manual-Installation" accesskey="n" rel="next">Manual Installation</a>, Up: <a href="#Installation" accesskey="u" rel="up">Installation</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Manual-Installation" rel="next">Manual Installation</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Installation" rel="up">Installation</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h3 class="section" id="Requirements-1"><span>2.1 Requirements<a class="copiable-link" href="#Requirements-1"> &para;</a></span></h3>
 
 <p>Before installing <code class="code">dired-video-thumbnail</code>, ensure you have:
@@ -212,10 +234,8 @@ Next: <a href="#Manual-Installation" accesskey="n" rel="next">Manual Installatio
 <hr>
 </div>
 <div class="section-level-extent" id="Manual-Installation">
-<div class="nav-panel">
-<p>
-Next: <a href="#Package-Manager" accesskey="n" rel="next">Installing via Package Managers</a>, Previous: <a href="#Requirements" accesskey="p" rel="prev">Requirements</a>, Up: <a href="#Installation" accesskey="u" rel="up">Installation</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Package-Manager" rel="next">Installing via Package Managers</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Requirements" rel="prev">Requirements</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Installation" rel="up">Installation</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h3 class="section" id="Manual-Installation-1"><span>2.2 Manual Installation<a class="copiable-link" href="#Manual-Installation-1"> &para;</a></span></h3>
 
 <p>Download <samp class="file">dired-video-thumbnail.el</samp> and place it in your load path:
@@ -228,15 +248,13 @@ Next: <a href="#Package-Manager" accesskey="n" rel="next">Installing via Package
 <hr>
 </div>
 <div class="section-level-extent" id="Package-Manager">
-<div class="nav-panel">
-<p>
-Previous: <a href="#Manual-Installation" accesskey="p" rel="prev">Manual Installation</a>, Up: <a href="#Installation" accesskey="u" rel="up">Installation</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Manual-Installation" rel="prev">Manual Installation</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Installation" rel="up">Installation</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h3 class="section" id="Installing-via-Package-Managers"><span>2.3 Installing via Package Managers<a class="copiable-link" href="#Installing-via-Package-Managers"> &para;</a></span></h3>
 
 <ul class="mini-toc">
-<li><a href="#use_002dpackage" accesskey="1">use-package</a></li>
-<li><a href="#straight_002eel" accesskey="2">straight.el</a></li>
+<li><a href="#use_002dpackage">use-package</a></li>
+<li><a href="#straight_002eel">straight.el</a></li>
 </ul>
 <div class="subsection-level-extent" id="use_002dpackage">
 <h4 class="subsection"><span>2.3.1 use-package<a class="copiable-link" href="#use_002dpackage"> &para;</a></span></h4>
@@ -263,20 +281,22 @@ Previous: <a href="#Manual-Installation" accesskey="p" rel="prev">Manual Install
 </div>
 </div>
 <div class="chapter-level-extent" id="Usage">
-<div class="nav-panel">
-<p>
-Next: <a href="#Keybindings" accesskey="n" rel="next">Keybindings</a>, Previous: <a href="#Installation" accesskey="p" rel="prev">Installation</a>, Up: <a href="#Top" accesskey="u" rel="up">Dired Video Thumbnail</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Keybindings" rel="next">Keybindings</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Installation" rel="prev">Installation</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Top" rel="up">Dired Video Thumbnail</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h2 class="chapter" id="Usage-1"><span>3 Usage<a class="copiable-link" href="#Usage-1"> &para;</a></span></h2>
 
+
 <ul class="mini-toc">
-<li><a href="#Basic-Usage" accesskey="1">Basic Usage</a></li>
-<li><a href="#Working-with-Marked-Files" accesskey="2">Working with Marked Files</a></li>
-<li><a href="#Suggested-Keybinding" accesskey="3">Suggested Keybinding</a></li>
-<li><a href="#Header-Line-Information" accesskey="4">Header Line Information</a></li>
+<li><a href="#Basic-Usage">Basic Usage</a></li>
+<li><a href="#Working-with-Marked-Files">Working with Marked Files</a></li>
+<li><a href="#Recursive-Mode">Recursive Mode</a></li>
+<li><a href="#Header-Line-Information">Header Line Information</a></li>
 </ul>
+<hr>
 <div class="section-level-extent" id="Basic-Usage">
-<h3 class="section"><span>3.1 Basic Usage<a class="copiable-link" href="#Basic-Usage"> &para;</a></span></h3>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Working-with-Marked-Files" rel="next">Working with Marked Files</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Usage" rel="up">Usage</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="Basic-Usage-1"><span>3.1 Basic Usage<a class="copiable-link" href="#Basic-Usage-1"> &para;</a></span></h3>
 
 <ol class="enumerate">
 <li> Open a directory containing video files in dired
@@ -285,9 +305,12 @@ Next: <a href="#Keybindings" accesskey="n" rel="next">Keybindings</a>, Previous:
 </li><li> The cursor automatically moves to the first thumbnail
 </li></ol>
 
+<hr>
 </div>
 <div class="section-level-extent" id="Working-with-Marked-Files">
-<h3 class="section"><span>3.2 Working with Marked Files<a class="copiable-link" href="#Working-with-Marked-Files"> &para;</a></span></h3>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Recursive-Mode" rel="next">Recursive Mode</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Basic-Usage" rel="prev">Basic Usage</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Usage" rel="up">Usage</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="Working-with-Marked-Files-1"><span>3.2 Working with Marked Files<a class="copiable-link" href="#Working-with-Marked-Files-1"> &para;</a></span></h3>
 
 <ol class="enumerate">
 <li> In dired, mark specific video files with <kbd class="kbd">m</kbd>
@@ -295,9 +318,30 @@ Next: <a href="#Keybindings" accesskey="n" rel="next">Keybindings</a>, Previous:
 </li><li> Only thumbnails for the marked videos are displayed
 </li></ol>
 
+<hr>
 </div>
-<div class="section-level-extent" id="Suggested-Keybinding">
-<h3 class="section"><span>3.3 Suggested Keybinding<a class="copiable-link" href="#Suggested-Keybinding"> &para;</a></span></h3>
+<div class="section-level-extent" id="Recursive-Mode">
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Header-Line-Information" rel="next">Header Line Information</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Working-with-Marked-Files" rel="prev">Working with Marked Files</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Usage" rel="up">Usage</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="Recursive-Mode-1"><span>3.3 Recursive Mode<a class="copiable-link" href="#Recursive-Mode-1"> &para;</a></span></h3>
+
+<p>To include videos from subdirectories:
+</p>
+<ul class="itemize mark-bullet">
+<li>Use <kbd class="kbd">C-u M-x dired-video-thumbnail</kbd> (with prefix argument)
+</li><li>Or run <kbd class="kbd">M-x dired-video-thumbnail-recursive</kbd>
+</li><li>Or press <kbd class="kbd">R</kbd> in the thumbnail buffer to toggle recursive mode
+</li></ul>
+
+<p>When <code class="code">dired-video-thumbnail-auto-recursive</code> is enabled (the default), the
+package automatically searches subdirectories if the current directory contains
+no video files but has subdirectories.
+</p>
+<ul class="mini-toc">
+<li><a href="#Suggested-Keybinding">Suggested Keybinding</a></li>
+</ul>
+<div class="subsection-level-extent" id="Suggested-Keybinding">
+<h4 class="subsection"><span>3.3.1 Suggested Keybinding<a class="copiable-link" href="#Suggested-Keybinding"> &para;</a></span></h4>
 
 <p>Add a keybinding in dired for quick access:
 </p>
@@ -306,41 +350,56 @@ Next: <a href="#Keybindings" accesskey="n" rel="next">Keybindings</a>, Previous:
   (define-key dired-mode-map (kbd &quot;C-t v&quot;) #'dired-video-thumbnail))
 </pre></div>
 
+<hr>
+</div>
 </div>
 <div class="section-level-extent" id="Header-Line-Information">
-<h3 class="section"><span>3.4 Header Line Information<a class="copiable-link" href="#Header-Line-Information"> &para;</a></span></h3>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Recursive-Mode" rel="prev">Recursive Mode</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Usage" rel="up">Usage</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="Header-Line-Information-1"><span>3.4 Header Line Information<a class="copiable-link" href="#Header-Line-Information-1"> &para;</a></span></h3>
 
 <p>As you navigate between thumbnails, the header line dynamically displays
-information about the current video:
+the state of the gallery and information about the current video:
 </p>
 <ul class="itemize mark-bullet">
-<li><strong class="strong">Mark indicator</strong> - A red asterisk if the video is marked
-</li><li><strong class="strong">Filename</strong> - The video filename in bold
-</li><li><strong class="strong">Dimensions</strong> - Video resolution (e.g., 1920x1080)
-</li><li><strong class="strong">Duration</strong> - Video length (e.g., 5:32 or 1:23:45)
-</li><li><strong class="strong">File size</strong> - Size in MB (e.g., 45.2 MB)
+<li><strong class="strong">Video counts</strong> - The number of visible videos (e.g., <code class="code">[12 videos]</code>),
+or shown/total when a filter is active (e.g., <code class="code">[3/12 videos]</code>)
+</li><li><strong class="strong">Marked count</strong> - The number of marked videos (e.g., <code class="code">[2 marked]</code>),
+shown only when at least one is marked
+</li><li><strong class="strong">Directory</strong> - The directory containing the current video, abbreviated
+</li><li><strong class="strong">Filename</strong> - The video filename (relative path in recursive mode)
+</li><li><strong class="strong">File size</strong> - Human-readable size (e.g., <code class="code">45M</code>)
+</li><li><strong class="strong">Dimensions</strong> - Video resolution (e.g., <code class="code">1920x1080</code>)
+</li><li><strong class="strong">Duration</strong> - Video length (e.g., <code class="code">5:32</code> or <code class="code">1:23:45</code>)
+</li><li><strong class="strong">Sort order</strong> - Current sort criteria and direction (e.g., <code class="code">[name &lt;]</code>)
+</li><li><strong class="strong">Filters</strong> - Active name, duration and size filters
+</li><li><strong class="strong">Recursive indicator</strong> - <code class="code">[recursive]</code> when browsing subdirectories
 </li></ul>
 
+<p>The buffer itself contains only thumbnails; all gallery state lives in the
+header line.
+</p>
 <hr>
 </div>
 </div>
 <div class="chapter-level-extent" id="Keybindings">
-<div class="nav-panel">
-<p>
-Next: <a href="#Customization" accesskey="n" rel="next">Customization</a>, Previous: <a href="#Usage" accesskey="p" rel="prev">Usage</a>, Up: <a href="#Top" accesskey="u" rel="up">Dired Video Thumbnail</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Customization" rel="next">Customization</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Usage" rel="prev">Usage</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Top" rel="up">Dired Video Thumbnail</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h2 class="chapter" id="Keybindings-1"><span>4 Keybindings<a class="copiable-link" href="#Keybindings-1"> &para;</a></span></h2>
 
 <p>All commands are available in the <code class="code">*Video Thumbnails*</code> buffer.
 </p>
 <ul class="mini-toc">
-<li><a href="#Navigation-Commands" accesskey="1">Navigation Commands</a></li>
-<li><a href="#Playback-Commands" accesskey="2">Playback Commands</a></li>
-<li><a href="#Marking-Commands" accesskey="3">Marking Commands</a></li>
-<li><a href="#Deletion-Commands" accesskey="4">Deletion Commands</a></li>
-<li><a href="#Display-Commands" accesskey="5">Display Commands</a></li>
-<li><a href="#Sorting-Commands" accesskey="6">Sorting Commands</a></li>
-<li><a href="#Filtering-Commands" accesskey="7">Filtering Commands</a></li>
+<li><a href="#Navigation-Commands">Navigation Commands</a></li>
+<li><a href="#Playback-Commands">Playback Commands</a></li>
+<li><a href="#Marking-Commands">Marking Commands</a></li>
+<li><a href="#Deletion-Commands">Deletion Commands</a></li>
+<li><a href="#Moving-Commands">Moving Commands</a></li>
+<li><a href="#Display-Commands">Display Commands</a></li>
+<li><a href="#Sorting-Commands">Sorting Commands</a></li>
+<li><a href="#Filtering-Commands">Filtering Commands</a></li>
+<li><a href="#Help-Commands">Help Commands</a></li>
+<li><a href="#Transient-Menu">Transient Menu</a></li>
 </ul>
 <div class="section-level-extent" id="Navigation-Commands">
 <h3 class="section"><span>4.1 Navigation Commands<a class="copiable-link" href="#Navigation-Commands"> &para;</a></span></h3>
@@ -348,7 +407,6 @@ Next: <a href="#Customization" accesskey="n" rel="next">Customization</a>, Previ
 <dl class="table">
 <dt><kbd class="kbd">n</kbd></dt>
 <dt><kbd class="kbd">p</kbd></dt>
-<dt><kbd class="kbd"><kbd class="key">SPC</kbd></kbd></dt>
 <dd><p>Move to next/previous thumbnail (<code class="code">dired-video-thumbnail-next</code>,
 <code class="code">dired-video-thumbnail-previous</code>)
 </p>
@@ -367,12 +425,21 @@ Next: <a href="#Customization" accesskey="n" rel="next">Customization</a>, Previ
 <code class="code">dired-video-thumbnail-next-row</code>)
 </p>
 </dd>
+<dt><kbd class="kbd">C-l</kbd></dt>
+<dd><p>Re-centre the grid around the current video, cycling between centre, top and
+bottom (<code class="code">dired-video-thumbnail-recenter-top-bottom</code>)
+</p>
+</dd>
 <dt><kbd class="kbd">d</kbd></dt>
 <dd><p>Switch to associated dired buffer (<code class="code">dired-video-thumbnail-goto-dired</code>)
 </p>
 </dd>
 <dt><kbd class="kbd">q</kbd></dt>
 <dd><p>Close the thumbnail buffer (<code class="code">quit-window</code>)
+</p>
+</dd>
+<dt><kbd class="kbd">Q</kbd></dt>
+<dd><p>Quit and kill the thumbnail buffer (<code class="code">dired-video-thumbnail-quit-and-kill</code>)
 </p></dd>
 </dl>
 
@@ -382,6 +449,8 @@ Next: <a href="#Customization" accesskey="n" rel="next">Customization</a>, Previ
 
 <dl class="table">
 <dt><kbd class="kbd"><kbd class="key">RET</kbd></kbd></dt>
+<dt><kbd class="kbd"><kbd class="key">SPC</kbd></kbd></dt>
+<dt><kbd class="kbd">o</kbd></dt>
 <dt><kbd class="kbd">mouse-1</kbd></dt>
 <dd><p>Play video at point (<code class="code">dired-video-thumbnail-play</code>)
 </p></dd>
@@ -427,9 +496,16 @@ the thumbnail view also marks it in dired, and vice versa.
 <div class="section-level-extent" id="Deletion-Commands">
 <h3 class="section"><span>4.4 Deletion Commands<a class="copiable-link" href="#Deletion-Commands"> &para;</a></span></h3>
 
+<p>Deleted videos are moved to the system trash, so they can be recovered.
+</p>
 <dl class="table">
 <dt><kbd class="kbd">D</kbd></dt>
 <dd><p>Delete video at point with confirmation (<code class="code">dired-video-thumbnail-delete</code>)
+</p>
+</dd>
+<dt><kbd class="kbd">C-d</kbd></dt>
+<dd><p>Delete video at point and stay on the next thumbnail, without rebuilding the
+grid (<code class="code">dired-video-thumbnail-delete-and-next</code>)
 </p>
 </dd>
 <dt><kbd class="kbd">x</kbd></dt>
@@ -438,8 +514,20 @@ the thumbnail view also marks it in dired, and vice versa.
 </dl>
 
 </div>
+<div class="section-level-extent" id="Moving-Commands">
+<h3 class="section"><span>4.5 Moving Commands<a class="copiable-link" href="#Moving-Commands"> &para;</a></span></h3>
+
+<dl class="table">
+<dt><kbd class="kbd">v</kbd></dt>
+<dd><p>Move the marked videos (or the video at point) to a target directory
+(<code class="code">dired-video-thumbnail-move</code>). The directory is created if needed, and
+existing files are only overwritten after confirmation.
+</p></dd>
+</dl>
+
+</div>
 <div class="section-level-extent" id="Display-Commands">
-<h3 class="section"><span>4.5 Display Commands<a class="copiable-link" href="#Display-Commands"> &para;</a></span></h3>
+<h3 class="section"><span>4.6 Display Commands<a class="copiable-link" href="#Display-Commands"> &para;</a></span></h3>
 
 <dl class="table">
 <dt><kbd class="kbd">+</kbd></dt>
@@ -453,11 +541,16 @@ the thumbnail view also marks it in dired, and vice versa.
 </p>
 </dd>
 <dt><kbd class="kbd">g</kbd></dt>
-<dd><p>Regenerate thumbnail for video at point (<code class="code">dired-video-thumbnail-regenerate</code>)
+<dd><p>Re-scan the source directory from disk and refresh (<code class="code">dired-video-thumbnail-re-scan</code>)
 </p>
 </dd>
 <dt><kbd class="kbd">G</kbd></dt>
-<dd><p>Regenerate all thumbnails (<code class="code">dired-video-thumbnail-regenerate-all</code>)
+<dd><p>Hard refresh: clear the gallery&rsquo;s cached thumbnails, re-scan and regenerate them
+(<code class="code">dired-video-thumbnail-hard-refresh</code>)
+</p>
+</dd>
+<dt><kbd class="kbd">C-r</kbd></dt>
+<dd><p>Regenerate the thumbnail at point (<code class="code">dired-video-thumbnail-regenerate</code>)
 </p>
 </dd>
 <dt><kbd class="kbd">R</kbd></dt>
@@ -469,9 +562,12 @@ the thumbnail view also marks it in dired, and vice versa.
 </p></dd>
 </dl>
 
+<p><code class="code">dired-video-thumbnail-regenerate-all</code> is also available from the
+transient menu as <kbd class="kbd">C-R</kbd>.
+</p>
 </div>
 <div class="section-level-extent" id="Sorting-Commands">
-<h3 class="section"><span>4.6 Sorting Commands<a class="copiable-link" href="#Sorting-Commands"> &para;</a></span></h3>
+<h3 class="section"><span>4.7 Sorting Commands<a class="copiable-link" href="#Sorting-Commands"> &para;</a></span></h3>
 
 <p>Sorting commands are prefixed with <kbd class="kbd">s</kbd>:
 </p>
@@ -503,7 +599,7 @@ the thumbnail view also marks it in dired, and vice versa.
 
 </div>
 <div class="section-level-extent" id="Filtering-Commands">
-<h3 class="section"><span>4.7 Filtering Commands<a class="copiable-link" href="#Filtering-Commands"> &para;</a></span></h3>
+<h3 class="section"><span>4.8 Filtering Commands<a class="copiable-link" href="#Filtering-Commands"> &para;</a></span></h3>
 
 <p>Filtering commands are prefixed with <kbd class="kbd">/</kbd>:
 </p>
@@ -530,14 +626,31 @@ the thumbnail view also marks it in dired, and vice versa.
 </p></dd>
 </dl>
 
+</div>
+<div class="section-level-extent" id="Help-Commands">
+<h3 class="section"><span>4.9 Help Commands<a class="copiable-link" href="#Help-Commands"> &para;</a></span></h3>
+
+<dl class="table">
+<dt><kbd class="kbd">h</kbd></dt>
+<dt><kbd class="kbd">?</kbd></dt>
+<dd><p>Show help buffer with command summary (<code class="code">dired-video-thumbnail-help</code>)
+</p></dd>
+</dl>
+
+</div>
+<div class="section-level-extent" id="Transient-Menu">
+<h3 class="section"><span>4.10 Transient Menu<a class="copiable-link" href="#Transient-Menu"> &para;</a></span></h3>
+
+<p>Press <kbd class="kbd">.</kbd> or <kbd class="kbd">C-c .</kbd> in the thumbnail buffer to open a transient menu
+that provides access to all commands with a live state summary. Submenus group
+sorting, filtering, marking and display commands.
+</p>
 <hr>
 </div>
 </div>
 <div class="chapter-level-extent" id="Customization">
-<div class="nav-panel">
-<p>
-Next: <a href="#Workflows" accesskey="n" rel="next">Common Workflows</a>, Previous: <a href="#Keybindings" accesskey="p" rel="prev">Keybindings</a>, Up: <a href="#Top" accesskey="u" rel="up">Dired Video Thumbnail</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Workflows" rel="next">Common Workflows</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Keybindings" rel="prev">Keybindings</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Top" rel="up">Dired Video Thumbnail</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h2 class="chapter" id="Customization-1"><span>5 Customization<a class="copiable-link" href="#Customization-1"> &para;</a></span></h2>
 
 <p>All customization options are in the <code class="code">dired-video-thumbnail</code> group.
@@ -546,18 +659,22 @@ browse them interactively.
 </p>
 
 <ul class="mini-toc">
-<li><a href="#Display-Settings" accesskey="1">Display Settings</a></li>
-<li><a href="#Cache-Settings" accesskey="2">Cache Settings</a></li>
-<li><a href="#Video-Settings" accesskey="3">Video Settings</a></li>
-<li><a href="#Mark-Appearance" accesskey="4">Mark Appearance</a></li>
-<li><a href="#Advanced-Settings" accesskey="5">Advanced Settings</a></li>
+<li><a href="#Display-Settings">Display Settings</a></li>
+<li><a href="#Cache-Settings">Cache Settings</a></li>
+<li><a href="#Video-Settings">Video Settings</a></li>
+<li><a href="#Mark-Appearance">Mark Appearance</a></li>
+<li><a href="#Current_002dThumbnail-Highlight">Current-Thumbnail Highlight</a></li>
+<li><a href="#Sorting-Settings">Sorting Settings</a></li>
+<li><a href="#Per_002dDirectory-Settings">Per-Directory Settings</a></li>
+<li><a href="#Recursive-Settings">Recursive Settings</a></li>
+<li><a href="#File-Validation">File Validation</a></li>
+<li><a href="#Confirmation">Confirmation</a></li>
+<li><a href="#Advanced-Settings">Advanced Settings</a></li>
 </ul>
 <hr>
 <div class="section-level-extent" id="Display-Settings">
-<div class="nav-panel">
-<p>
-Next: <a href="#Cache-Settings" accesskey="n" rel="next">Cache Settings</a>, Up: <a href="#Customization" accesskey="u" rel="up">Customization</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Cache-Settings" rel="next">Cache Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h3 class="section" id="Display-Settings-1"><span>5.1 Display Settings<a class="copiable-link" href="#Display-Settings-1"> &para;</a></span></h3>
 
 <dl class="first-defvr first-defopt-alias-first-defvr def-block">
@@ -612,10 +729,8 @@ a fixed number of columns is used. Default: <code class="code">t</code>.
 <hr>
 </div>
 <div class="section-level-extent" id="Cache-Settings">
-<div class="nav-panel">
-<p>
-Next: <a href="#Video-Settings" accesskey="n" rel="next">Video Settings</a>, Previous: <a href="#Display-Settings" accesskey="p" rel="prev">Display Settings</a>, Up: <a href="#Customization" accesskey="u" rel="up">Customization</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Video-Settings" rel="next">Video Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Display-Settings" rel="prev">Display Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h3 class="section" id="Cache-Settings-1"><span>5.2 Cache Settings<a class="copiable-link" href="#Cache-Settings-1"> &para;</a></span></h3>
 
 <dl class="first-defvr first-defopt-alias-first-defvr def-block">
@@ -641,10 +756,8 @@ automatically regenerated on next view.
 <hr>
 </div>
 <div class="section-level-extent" id="Video-Settings">
-<div class="nav-panel">
-<p>
-Next: <a href="#Mark-Appearance" accesskey="n" rel="next">Mark Appearance</a>, Previous: <a href="#Cache-Settings" accesskey="p" rel="prev">Cache Settings</a>, Up: <a href="#Customization" accesskey="u" rel="up">Customization</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Mark-Appearance" rel="next">Mark Appearance</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Cache-Settings" rel="prev">Cache Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h3 class="section" id="Video-Settings-1"><span>5.3 Video Settings<a class="copiable-link" href="#Video-Settings-1"> &para;</a></span></h3>
 
 <dl class="first-defvr first-defopt-alias-first-defvr def-block">
@@ -704,10 +817,8 @@ and <code class="code">&quot;ffprobe&quot;</code>.
 <hr>
 </div>
 <div class="section-level-extent" id="Mark-Appearance">
-<div class="nav-panel">
-<p>
-Next: <a href="#Advanced-Settings" accesskey="n" rel="next">Advanced Settings</a>, Previous: <a href="#Video-Settings" accesskey="p" rel="prev">Video Settings</a>, Up: <a href="#Customization" accesskey="u" rel="up">Customization</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Current_002dThumbnail-Highlight" rel="next">Current-Thumbnail Highlight</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Video-Settings" rel="prev">Video Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h3 class="section" id="Mark-Appearance-1"><span>5.4 Mark Appearance<a class="copiable-link" href="#Mark-Appearance-1"> &para;</a></span></h3>
 
 <p>Marked thumbnails are indicated with a colored border.
@@ -740,12 +851,46 @@ Next: <a href="#Advanced-Settings" accesskey="n" rel="next">Advanced Settings</a
 
 <hr>
 </div>
-<div class="section-level-extent" id="Advanced-Settings">
-<div class="nav-panel">
-<p>
-Previous: <a href="#Mark-Appearance" accesskey="p" rel="prev">Mark Appearance</a>, Up: <a href="#Customization" accesskey="u" rel="up">Customization</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
+<div class="section-level-extent" id="Current_002dThumbnail-Highlight">
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Sorting-Settings" rel="next">Sorting Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Mark-Appearance" rel="prev">Mark Appearance</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="Current_002dThumbnail-Highlight-1"><span>5.5 Current-Thumbnail Highlight<a class="copiable-link" href="#Current_002dThumbnail-Highlight-1"> &para;</a></span></h3>
+
+<p>The thumbnail at point is outlined with the
+<code class="code">dired-video-thumbnail-current-thumbnail</code> face, and the cursor is
+recolored to match. The outline is drawn inside the thumbnail, so
+navigating never changes the thumbnail sizes or re-flows the grid. Its
+color follows the active theme&rsquo;s <code class="code">highlight</code> background unless the
+face&rsquo;s <code class="code">:box</code> sets an explicit <code class="code">:color</code>.
+</p>
+<dl class="first-defvr first-defopt-alias-first-defvr def-block">
+<dt class="defvr defopt-alias-defvr def-line" id="index-dired_002dvideo_002dthumbnail_002dhighlight_002dcurrent_002dthumbnail"><span class="category-def">User Option: </span><span><strong class="def-name">dired-video-thumbnail-highlight-current-thumbnail</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002dhighlight_002dcurrent_002dthumbnail"> &para;</a></span></dt>
+<dd><p>Whether to outline the thumbnail at point. Default: <code class="code">t</code>.
+</p></dd></dl>
+
+<dl class="first-defvr first-defopt-alias-first-defvr def-block">
+<dt class="defvr defopt-alias-defvr def-line" id="index-dired_002dvideo_002dthumbnail_002dhighlight_002dcursor"><span class="category-def">User Option: </span><span><strong class="def-name">dired-video-thumbnail-highlight-cursor</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002dhighlight_002dcursor"> &para;</a></span></dt>
+<dd><p>Whether to recolor the cursor to match the highlight, buffer-locally.
+Default: <code class="code">t</code>.
+</p></dd></dl>
+
+<dl class="first-defvr def-block">
+<dt class="defvr def-line" id="index-dired_002dvideo_002dthumbnail_002dcurrent_002dthumbnail"><span class="category-def">Face: </span><span><strong class="def-name">dired-video-thumbnail-current-thumbnail</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002dcurrent_002dthumbnail"> &para;</a></span></dt>
+<dd><p>Face for the outline. Customize the <code class="code">:box</code> <code class="code">:line-width</code> to change its
+thickness, or give it an explicit <code class="code">:color</code>.
+</p>
+<div class="example lisp">
+<pre class="lisp-preformatted">(set-face-attribute 'dired-video-thumbnail-current-thumbnail nil
+                    :box '(:line-width -5 :color &quot;orange&quot;))
+</pre></div>
+</dd></dl>
+
+<hr>
 </div>
-<h3 class="section" id="Advanced-Settings-1"><span>5.5 Advanced Settings<a class="copiable-link" href="#Advanced-Settings-1"> &para;</a></span></h3>
+<div class="section-level-extent" id="Sorting-Settings">
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Per_002dDirectory-Settings" rel="next">Per-Directory Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Current_002dThumbnail-Highlight" rel="prev">Current-Thumbnail Highlight</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="Sorting-Settings-1"><span>5.6 Sorting Settings<a class="copiable-link" href="#Sorting-Settings-1"> &para;</a></span></h3>
 
 <dl class="first-defvr first-defopt-alias-first-defvr def-block">
 <dt class="defvr defopt-alias-defvr def-line" id="index-dired_002dvideo_002dthumbnail_002dsort_002dby"><span class="category-def">User Option: </span><span><strong class="def-name">dired-video-thumbnail-sort-by</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002dsort_002dby"> &para;</a></span></dt>
@@ -767,9 +912,53 @@ Default: <code class="code">ascending</code>.
 </pre></div>
 </dd></dl>
 
+<hr>
+</div>
+<div class="section-level-extent" id="Per_002dDirectory-Settings">
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Recursive-Settings" rel="next">Recursive Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Sorting-Settings" rel="prev">Sorting Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="Per_002dDirectory-Settings-1"><span>5.7 Per-Directory Settings<a class="copiable-link" href="#Per_002dDirectory-Settings-1"> &para;</a></span></h3>
+
+<p>Sort order, filters and the thumbnail display height are remembered per
+directory. Changing them in a thumbnail buffer writes the choice into that
+directory&rsquo;s <samp class="file">.dir-locals.el</samp> (under the nil class, merged with any existing
+entries), and opening the directory restores it. Only the package&rsquo;s own
+variables are ever written.
+</p>
+<dl class="first-defvr first-defopt-alias-first-defvr def-block">
+<dt class="defvr defopt-alias-defvr def-line" id="index-dired_002dvideo_002dthumbnail_002dsave_002ddir_002dsettings"><span class="category-def">User Option: </span><span><strong class="def-name">dired-video-thumbnail-save-dir-settings</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002dsave_002ddir_002dsettings"> &para;</a></span></dt>
+<dd><p>Whether to remember sort, filter and display-height choices per directory.
+Default: <code class="code">t</code>. Set to <code class="code">nil</code> to keep such choices session-local.
+</p></dd></dl>
+
+<dl class="first-defvr first-defopt-alias-first-defvr def-block">
+<dt class="defvr defopt-alias-defvr def-line" id="index-dired_002dvideo_002dthumbnail_002ddefault_002dfilter"><span class="category-def">User Option: </span><span><strong class="def-name">dired-video-thumbnail-default-filter</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002ddefault_002dfilter"> &para;</a></span></dt>
+<dd><p>Default name/duration/size filter, as a plist or <code class="code">nil</code> for no filter. The
+plist has the form <code class="code">(:name REGEXP :duration-min SECONDS :duration-max
+SECONDS :size-min BYTES :size-max BYTES)</code>, where each value may be <code class="code">nil</code>.
+</p>
+<div class="example lisp">
+<pre class="lisp-preformatted">(setq dired-video-thumbnail-default-filter
+      '(:name &quot;holiday&quot; :duration-min 30 :duration-max 600
+        :size-min 1048576 :size-max nil))
+</pre></div>
+</dd></dl>
+
+<dl class="first-defvr first-defopt-alias-first-defvr def-block">
+<dt class="defvr defopt-alias-defvr def-line" id="index-dired_002dvideo_002dthumbnail_002ddefault_002ddisplay_002dheight"><span class="category-def">User Option: </span><span><strong class="def-name">dired-video-thumbnail-default-display-height</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002ddefault_002ddisplay_002dheight"> &para;</a></span></dt>
+<dd><p>Default thumbnail display height in pixels, or <code class="code">nil</code> for the global value.
+</p></dd></dl>
+
+<hr>
+</div>
+<div class="section-level-extent" id="Recursive-Settings">
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#File-Validation" rel="next">File Validation</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Per_002dDirectory-Settings" rel="prev">Per-Directory Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="Recursive-Settings-1"><span>5.8 Recursive Settings<a class="copiable-link" href="#Recursive-Settings-1"> &para;</a></span></h3>
+
 <dl class="first-defvr first-defopt-alias-first-defvr def-block">
 <dt class="defvr defopt-alias-defvr def-line" id="index-dired_002dvideo_002dthumbnail_002drecursive"><span class="category-def">User Option: </span><span><strong class="def-name">dired-video-thumbnail-recursive</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002drecursive"> &para;</a></span></dt>
-<dd><p>Whether to search for videos recursively in subdirectories. Default: <code class="code">nil</code>.
+<dd><p>Whether to always search for videos recursively in subdirectories. Default: <code class="code">nil</code>.
 </p>
 <div class="example lisp">
 <pre class="lisp-preformatted">(setq dired-video-thumbnail-recursive t)
@@ -781,6 +970,7 @@ Default: <code class="code">ascending</code>.
 <dd><p>Whether to automatically search recursively when no videos in current directory.
 When non-<code class="code">nil</code>, if the current directory contains no video files but has
 subdirectories, <code class="code">dired-video-thumbnail</code> will automatically search recursively.
+This is useful for video collections organized in year/category folders.
 Default: <code class="code">t</code>.
 </p>
 <div class="example lisp">
@@ -790,19 +980,93 @@ Default: <code class="code">t</code>.
 
 <hr>
 </div>
+<div class="section-level-extent" id="File-Validation">
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Confirmation" rel="next">Confirmation</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Recursive-Settings" rel="prev">Recursive Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="File-Validation-1"><span>5.9 File Validation<a class="copiable-link" href="#File-Validation-1"> &para;</a></span></h3>
+
+<dl class="first-defvr first-defopt-alias-first-defvr def-block">
+<dt class="defvr defopt-alias-defvr def-line" id="index-dired_002dvideo_002dthumbnail_002dminimum_002dfile_002dsize"><span class="category-def">User Option: </span><span><strong class="def-name">dired-video-thumbnail-minimum-file-size</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002dminimum_002dfile_002dsize"> &para;</a></span></dt>
+<dd><p>Minimum file size in bytes for a video to be included. Files smaller than this
+are assumed to be corrupt or empty and are silently excluded. Set to 0 to
+disable the check. Default: <code class="code">100</code>.
+</p></dd></dl>
+
+<dl class="first-defvr first-defopt-alias-first-defvr def-block">
+<dt class="defvr defopt-alias-defvr def-line" id="index-dired_002dvideo_002dthumbnail_002dvalidate_002dheaders"><span class="category-def">User Option: </span><span><strong class="def-name">dired-video-thumbnail-validate-headers</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002dvalidate_002dheaders"> &para;</a></span></dt>
+<dd><p>Whether to verify each candidate file&rsquo;s first 12 bytes against known video
+container signatures (ISO BMFF/MP4/MOV/M4V/3GP, Matroska/WebM, AVI, FLV, Ogg,
+ASF/WMV and MPEG program/elementary streams). Default: <code class="code">nil</code>.
+</p></dd></dl>
+
+<hr>
+</div>
+<div class="section-level-extent" id="Confirmation">
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Advanced-Settings" rel="next">Advanced Settings</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#File-Validation" rel="prev">File Validation</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="Confirmation-1"><span>5.10 Confirmation<a class="copiable-link" href="#Confirmation-1"> &para;</a></span></h3>
+
+<dl class="first-defvr first-defopt-alias-first-defvr def-block">
+<dt class="defvr defopt-alias-defvr def-line" id="index-dired_002dvideo_002dthumbnail_002dauto_002daccept"><span class="category-def">User Option: </span><span><strong class="def-name">dired-video-thumbnail-auto-accept</strong><a class="copiable-link" href="#index-dired_002dvideo_002dthumbnail_002dauto_002daccept"> &para;</a></span></dt>
+<dd><p>Whether to skip confirmation for file actions like deletion and moving. When
+non-<code class="code">nil</code>, deleting videos, creating a move target directory and
+overwriting an existing file proceed without prompting. Default: <code class="code">nil</code>.
+</p></dd></dl>
+
+<hr>
+</div>
+<div class="section-level-extent" id="Advanced-Settings">
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Confirmation" rel="prev">Confirmation</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Customization" rel="up">Customization</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
+<h3 class="section" id="Advanced-Settings-1"><span>5.11 Advanced Settings<a class="copiable-link" href="#Advanced-Settings-1"> &para;</a></span></h3>
+
+<ul class="mini-toc">
+<li><a href="#Example-Configuration">Example Configuration</a></li>
+</ul>
+<div class="subsection-level-extent" id="Example-Configuration">
+<h4 class="subsection"><span>5.11.1 Example Configuration<a class="copiable-link" href="#Example-Configuration"> &para;</a></span></h4>
+
+<p>Here is a complete example configuration using <code class="code">use-package</code>:
+</p>
+<div class="example lisp">
+<pre class="lisp-preformatted">(use-package dired-video-thumbnail
+  :load-path &quot;/path/to/dired-video-thumbnail/&quot;
+  :bind (:map dired-mode-map
+         (&quot;C-t v&quot; . dired-video-thumbnail))
+  :custom
+  (dired-video-thumbnail-size 250)
+  (dired-video-thumbnail-display-height 180)
+  (dired-video-thumbnail-columns 5)
+  (dired-video-thumbnail-timestamp &quot;00:00:10&quot;)
+  (dired-video-thumbnail-video-player nil)
+  (dired-video-thumbnail-mark-border-width 5)
+  (dired-video-thumbnail-sort-by 'date)
+  (dired-video-thumbnail-sort-order 'descending)
+  (dired-video-thumbnail-auto-recursive t)
+  (dired-video-thumbnail-auto-accept nil)
+  (dired-video-thumbnail-save-dir-settings t)
+  (dired-video-thumbnail-validate-headers nil)
+  :custom-face
+  (dired-video-thumbnail-mark ((t (:foreground &quot;orange&quot;)))))
+</pre></div>
+
+<hr>
+</div>
+</div>
 </div>
 <div class="chapter-level-extent" id="Workflows">
-<div class="nav-panel">
-<p>
-Next: <a href="#Troubleshooting" accesskey="n" rel="next">Troubleshooting</a>, Previous: <a href="#Customization" accesskey="p" rel="prev">Customization</a>, Up: <a href="#Top" accesskey="u" rel="up">Dired Video Thumbnail</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Troubleshooting" rel="next">Troubleshooting</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Customization" rel="prev">Customization</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Top" rel="up">Dired Video Thumbnail</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h2 class="chapter" id="Common-Workflows"><span>6 Common Workflows<a class="copiable-link" href="#Common-Workflows"> &para;</a></span></h2>
 
 <ul class="mini-toc">
-<li><a href="#Reviewing-and-Deleting-Unwanted-Videos" accesskey="1">Reviewing and Deleting Unwanted Videos</a></li>
-<li><a href="#Selecting-Videos-for-Processing" accesskey="2">Selecting Videos for Processing</a></li>
-<li><a href="#Quick-Video-Preview" accesskey="3">Quick Video Preview</a></li>
-<li><a href="#Organizing-Video-Collections" accesskey="4">Organizing Video Collections</a></li>
+<li><a href="#Reviewing-and-Deleting-Unwanted-Videos">Reviewing and Deleting Unwanted Videos</a></li>
+<li><a href="#Selecting-Videos-for-Processing">Selecting Videos for Processing</a></li>
+<li><a href="#Quick-Video-Preview">Quick Video Preview</a></li>
+<li><a href="#Finding-Large-Videos">Finding Large Videos</a></li>
+<li><a href="#Finding-Long-Videos">Finding Long Videos</a></li>
+<li><a href="#Searching-by-Name-Pattern">Searching by Name Pattern</a></li>
+<li><a href="#Organizing-Video-Collections">Organizing Video Collections</a></li>
 </ul>
 <div class="section-level-extent" id="Reviewing-and-Deleting-Unwanted-Videos">
 <h3 class="section"><span>6.1 Reviewing and Deleting Unwanted Videos<a class="copiable-link" href="#Reviewing-and-Deleting-Unwanted-Videos"> &para;</a></span></h3>
@@ -839,8 +1103,40 @@ with <kbd class="kbd">x</kbd>
 </li></ol>
 
 </div>
+<div class="section-level-extent" id="Finding-Large-Videos">
+<h3 class="section"><span>6.4 Finding Large Videos<a class="copiable-link" href="#Finding-Large-Videos"> &para;</a></span></h3>
+
+<ol class="enumerate">
+<li> Open thumbnail view with <kbd class="kbd">C-t v</kbd>
+</li><li> Press <kbd class="kbd">s s</kbd> to sort by file size
+</li><li> Press <kbd class="kbd">s r</kbd> to reverse order (largest first)
+</li><li> Or use <kbd class="kbd">/ s</kbd> to filter by size range (e.g., minimum 100 MB)
+</li></ol>
+
+</div>
+<div class="section-level-extent" id="Finding-Long-Videos">
+<h3 class="section"><span>6.5 Finding Long Videos<a class="copiable-link" href="#Finding-Long-Videos"> &para;</a></span></h3>
+
+<ol class="enumerate">
+<li> Open thumbnail view with <kbd class="kbd">C-t v</kbd>
+</li><li> Press <kbd class="kbd">s D</kbd> to sort by duration
+</li><li> Or use <kbd class="kbd">/ d</kbd> to filter by duration range (e.g., 5:00 to 30:00)
+</li></ol>
+
+</div>
+<div class="section-level-extent" id="Searching-by-Name-Pattern">
+<h3 class="section"><span>6.6 Searching by Name Pattern<a class="copiable-link" href="#Searching-by-Name-Pattern"> &para;</a></span></h3>
+
+<ol class="enumerate">
+<li> Open thumbnail view with <kbd class="kbd">C-t v</kbd>
+</li><li> Press <kbd class="kbd">/ n</kbd> and enter a regexp pattern (e.g., <code class="code">2024</code> or <code class="code">holiday</code>)
+</li><li> Only matching videos are shown
+</li><li> Press <kbd class="kbd">/ c</kbd> to clear the filter and show all videos again
+</li></ol>
+
+</div>
 <div class="section-level-extent" id="Organizing-Video-Collections">
-<h3 class="section"><span>6.4 Organizing Video Collections<a class="copiable-link" href="#Organizing-Video-Collections"> &para;</a></span></h3>
+<h3 class="section"><span>6.7 Organizing Video Collections<a class="copiable-link" href="#Organizing-Video-Collections"> &para;</a></span></h3>
 
 <ol class="enumerate">
 <li> Enable recursive search with <kbd class="kbd">R</kbd> or set
@@ -848,24 +1144,23 @@ with <kbd class="kbd">x</kbd>
 </li><li> Sort videos by duration with <kbd class="kbd">s D</kbd>
 </li><li> Filter by size range with <kbd class="kbd">/ s</kbd>
 </li><li> Mark videos for moving or copying based on your criteria
+</li><li> Press <kbd class="kbd">d</kbd> to go to dired and perform file operations on marked files
 </li></ol>
 
 <hr>
 </div>
 </div>
 <div class="chapter-level-extent" id="Troubleshooting">
-<div class="nav-panel">
-<p>
-Next: <a href="#Index" accesskey="n" rel="next">Index</a>, Previous: <a href="#Workflows" accesskey="p" rel="prev">Common Workflows</a>, Up: <a href="#Top" accesskey="u" rel="up">Dired Video Thumbnail</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Next: </span><span class="nav-link"><a href="#Index" rel="next">Index</a></span></span>, <span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Workflows" rel="prev">Common Workflows</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Top" rel="up">Dired Video Thumbnail</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h2 class="chapter" id="Troubleshooting-1"><span>7 Troubleshooting<a class="copiable-link" href="#Troubleshooting-1"> &para;</a></span></h2>
 
 <ul class="mini-toc">
-<li><a href="#Thumbnails-Not-Generating" accesskey="1">Thumbnails Not Generating</a></li>
-<li><a href="#Placeholder-Showing-Instead-of-Thumbnail" accesskey="2">Placeholder Showing Instead of Thumbnail</a></li>
-<li><a href="#Video-Info-Not-Showing-in-Header-Line" accesskey="3">Video Info Not Showing in Header Line</a></li>
-<li><a href="#Marks-Not-Syncing-with-Dired" accesskey="4">Marks Not Syncing with Dired</a></li>
-<li><a href="#Performance-with-Many-Videos" accesskey="5">Performance with Many Videos</a></li>
+<li><a href="#Thumbnails-Not-Generating">Thumbnails Not Generating</a></li>
+<li><a href="#Placeholder-Showing-Instead-of-Thumbnail">Placeholder Showing Instead of Thumbnail</a></li>
+<li><a href="#Video-Info-Not-Showing-in-Header-Line">Video Info Not Showing in Header Line</a></li>
+<li><a href="#Marks-Not-Syncing-with-Dired">Marks Not Syncing with Dired</a></li>
+<li><a href="#Performance-with-Many-Videos">Performance with Many Videos</a></li>
 </ul>
 <div class="section-level-extent" id="Thumbnails-Not-Generating">
 <h3 class="section"><span>7.1 Thumbnails Not Generating<a class="copiable-link" href="#Thumbnails-Not-Generating"> &para;</a></span></h3>
@@ -906,6 +1201,9 @@ Next: <a href="#Index" accesskey="n" rel="next">Index</a>, Previous: <a href="#W
 <p>Run <kbd class="kbd">M-x dired-video-thumbnail-debug</kbd> to check if the dired buffer is
 properly associated. The output should show a live dired buffer reference.
 </p>
+<p>For videos in subdirectories (when using recursive mode), marks are stored
+locally and the subdirectory is automatically inserted into dired when needed.
+</p>
 </div>
 <div class="section-level-extent" id="Performance-with-Many-Videos">
 <h3 class="section"><span>7.5 Performance with Many Videos<a class="copiable-link" href="#Performance-with-Many-Videos"> &para;</a></span></h3>
@@ -915,14 +1213,15 @@ with hundreds of videos, initial thumbnail generation may take some time, but
 Emacs remains responsive and thumbnails appear as they complete. Thumbnails
 are cached, so subsequent views are instant.
 </p>
+<p>Video metadata (dimensions, duration) is also cached in memory to avoid
+repeated calls to <code class="command">ffprobe</code>.
+</p>
 <hr>
 </div>
 </div>
 <div class="unnumbered-level-extent" id="Index">
-<div class="nav-panel">
-<p>
-Previous: <a href="#Troubleshooting" accesskey="p" rel="prev">Troubleshooting</a>, Up: <a href="#Top" accesskey="u" rel="up">Dired Video Thumbnail</a> &nbsp; [<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="#Index" title="Index" rel="index">Index</a>]</p>
-</div>
+<p class="nav-panel">
+<span class="nav-button"><span class="nav-label">Previous: </span><span class="nav-link"><a href="#Troubleshooting" rel="prev">Troubleshooting</a></span></span>, <span class="nav-button"><span class="nav-label">Up: </span><span class="nav-link"><a href="#Top" rel="up">Dired Video Thumbnail</a></span></span><span class="nav-button"> &nbsp; </span><span class="nav-button">[<a href="#SEC_Contents" title="Table of contents" rel="contents">Contents</a>]</span><span class="nav-button">[<a href="#Index" title="Index" rel="index">Index</a>]</span></p>
 <h2 class="unnumbered" id="Index-1"><span>Index<a class="copiable-link" href="#Index-1"> &para;</a></span></h2>
 
 

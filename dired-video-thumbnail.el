@@ -3,7 +3,7 @@
 ;; Copyright (C) 2025 James Dyer
 
 ;; Author: James Dyer
-;; Version: 0.3.0
+;; Version: 0.4.0
 ;; Package-Requires: ((emacs "28.1"))
 ;; Keywords: multimedia, files, dired
 ;; URL: https://github.com/captainflasmr/dired-video-thumbnail
@@ -68,24 +68,28 @@
   (expand-file-name "dired-video-thumbnails" user-emacs-directory)
   "Directory for caching video thumbnails."
   :type 'directory
+  :safe #'stringp
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-size 200
   "Width of generated thumbnails in pixels.
 Height is calculated automatically to maintain aspect ratio."
   :type 'integer
+  :safe #'natnump
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-display-height 150
   "Display height of thumbnails in the buffer.
 Set to nil to use actual thumbnail size."
   :type '(choice integer (const nil))
+  :safe (lambda (value) (or (null value) (natnump value)))
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-columns 4
   "Number of thumbnail columns in the display buffer.
 Only used when `dired-video-thumbnail-wrap-display' is nil."
   :type 'integer
+  :safe #'natnump
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-wrap-display t
@@ -93,29 +97,34 @@ Only used when `dired-video-thumbnail-wrap-display' is nil."
 When non-nil, thumbnails flow naturally and wrap based on window width.
 When nil, a fixed number of columns is used."
   :type 'boolean
+  :safe #'booleanp
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-spacing 4
   "Spacing between thumbnails in pixels when using wrap display."
   :type 'integer
+  :safe #'natnump
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-timestamp "00:00:05"
   "Timestamp to extract thumbnail from (HH:MM:SS format).
 Set to nil to let ffmpeg choose automatically."
   :type '(choice string (const nil))
+  :safe (lambda (value) (or (null value) (stringp value)))
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-video-player "mpv"
   "Command to use for playing videos.
 Set to nil to use `browse-url-xdg-open' or system default."
   :type '(choice string (const nil))
+  :safe (lambda (value) (or (null value) (stringp value)))
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-video-extensions
   '("mp4" "mkv" "avi" "mov" "webm" "m4v" "wmv" "flv" "mpeg" "mpg" "ogv" "3gp")
   "List of video file extensions to recognise."
   :type '(repeat string)
+  :safe (lambda (value) (and (listp value) (cl-every #'stringp value)))
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-minimum-file-size 100
@@ -142,16 +151,19 @@ your directories or want maximum speed."
 (defcustom dired-video-thumbnail-ffmpeg-program "ffmpeg"
   "Path to ffmpeg executable."
   :type 'string
+  :safe #'stringp
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-ffprobe-program "ffprobe"
   "Path to ffprobe executable."
   :type 'string
+  :safe #'stringp
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-mark-border-width 4
   "Width of the border around marked thumbnails in pixels."
   :type 'integer
+  :safe #'natnump
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-sort-by 'name
@@ -232,6 +244,7 @@ untouched.  Set to nil to keep such choices session-local."
 When non-nil, `dired-video-thumbnail' will include videos from
 all subdirectories."
   :type 'boolean
+  :safe #'booleanp
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-auto-recursive t
@@ -240,6 +253,7 @@ When non-nil, if the current directory contains no video files but has
 subdirectories, `dired-video-thumbnail' will automatically search recursively.
 This is useful for video collections organised in year/category folders."
   :type 'boolean
+  :safe #'booleanp
   :group 'dired-video-thumbnail)
 
 (defcustom dired-video-thumbnail-auto-accept nil
@@ -2706,6 +2720,32 @@ The nearest preceding thumbnail is preferred when point is in a gap."
       (kill-process proc)))
   (setq dired-video-thumbnail--processes nil)
   (setq dired-video-thumbnail--pending nil))
+
+;;; Unloading
+
+(defun dired-video-thumbnail-unload-function ()
+  "Tear down processes and buffer-local hooks installed by the package.
+Called by `unload-feature'.  Returns nil so standard unloading proceeds."
+  (dired-video-thumbnail--cleanup)
+  ;; Kill any live video-info query processes.
+  (dolist (proc (process-list))
+    (when (string-prefix-p "dired-video-thumb-info" (process-name proc))
+      (delete-process proc)))
+  (setq dired-video-thumbnail--info-queue nil)
+  (setq dired-video-thumbnail--info-running 0)
+  (clrhash dired-video-thumbnail--info-pending)
+  ;; Remove the package's buffer-local hooks and overlays.
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when (derived-mode-p 'dired-video-thumbnail-mode)
+        (remove-hook 'post-command-hook
+                     #'dired-video-thumbnail--snap-to-thumbnail t)
+        (remove-hook 'post-command-hook
+                     #'dired-video-thumbnail--update-current-highlight t)
+        (when (overlayp dired-video-thumbnail--current-overlay)
+          (delete-overlay dired-video-thumbnail--current-overlay))
+        (kill-local-variable 'face-remapping-alist))))
+  nil)
 
 ;; Load transient menu support if available
 (when (require 'dired-video-thumbnail-transient nil t)

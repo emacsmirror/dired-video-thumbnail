@@ -7,7 +7,7 @@
 @c %**end of header
 
 @copying
-This manual is for dired-video-thumbnail (version 0.2.0).
+This manual is for dired-video-thumbnail (version 0.4.0).
 
 Copyright @copyright{} 2025 James Dyer
 
@@ -28,7 +28,7 @@ Texts. A copy of the license is included in the section entitled
 
 @titlepage
 @title Dired Video Thumbnail Manual
-@subtitle For version 0.2.0
+@subtitle For version 0.4.0
 @author James Dyer
 @page
 @vskip 0pt plus 1filll
@@ -110,8 +110,11 @@ Dired integration - marks sync bidirectionally with the associated dired buffer
 @item
 Visual mark indication - marked thumbnails display a colored border (like @code{image-dired})
 @item
-Dynamic header line - shows filename, dimensions, duration, file size, sort order,
-and active filters for the current video
+Current-thumbnail highlight - the thumbnail at point is outlined with a theme-aware
+border, and the cursor is recolored to match
+@item
+Dynamic header line - shows video counts, marked count, directory, filename,
+file size, dimensions, duration, sort order, and active filters
 @item
 Click to play - open videos in your preferred external player
 @item
@@ -124,6 +127,22 @@ Sorting - sort videos by name, date, size, or duration with ascending/descending
 Filtering - filter videos by name pattern (regexp), duration range, or file size range
 @item
 Recursive search - browse videos across subdirectories with optional auto-recursive mode
+@item
+Per-directory settings - sort order, filters and thumbnail height are remembered in
+each directory's @file{.dir-locals.el}
+@item
+Per-directory galleries - each directory gets its own thumbnail buffer, so several
+galleries can stay open at once
+@item
+Asynchronous metadata - resolution and duration are queried in the background, so
+large directories never block Emacs
+@item
+File validation - empty or corrupt files are ignored by minimum size, with an
+optional container signature check
+@item
+Trash-based deletion and move-to-directory for managing files from the gallery
+@item
+Transient menu - comprehensive command menu accessible via @kbd{.} or @kbd{C-c .}
 @end itemize
 
 @node Installation
@@ -250,33 +269,35 @@ Add a keybinding in dired for quick access:
 @section Header Line Information
 
 As you navigate between thumbnails, the header line dynamically displays
-information about the current video:
+the state of the gallery and information about the current video:
 
 @itemize @bullet
 @item
-@strong{Mark indicator} - A red asterisk if the video is marked
+@strong{Video counts} - The number of visible videos (e.g., @code{[12 videos]}),
+or shown/total when a filter is active (e.g., @code{[3/12 videos]})
 @item
-@strong{Filename} - The video filename in bold (shows relative path in recursive mode)
+@strong{Marked count} - The number of marked videos (e.g., @code{[2 marked]}),
+shown only when at least one is marked
 @item
-@strong{Dimensions} - Video resolution (e.g., 1920x1080)
+@strong{Directory} - The directory containing the current video, abbreviated
 @item
-@strong{Duration} - Video length (e.g., 5:32 or 1:23:45)
+@strong{Filename} - The video filename (relative path in recursive mode)
 @item
-@strong{File size} - Size in MB (e.g., 45.2 MB)
-@end itemize
-
-The header also shows:
-
-@itemize @bullet
+@strong{File size} - Human-readable size (e.g., @code{45M})
 @item
-@strong{Sort indicator} - Current sort criteria and direction (e.g., @code{[name ↑]} or @code{[date ↓]})
+@strong{Dimensions} - Video resolution (e.g., @code{1920x1080})
 @item
-@strong{Filter indicator} - Active filters (e.g., @code{name:/pattern/}, @code{duration:1:00-5:00})
+@strong{Duration} - Video length (e.g., @code{5:32} or @code{1:23:45})
+@item
+@strong{Sort order} - Current sort criteria and direction (e.g., @code{[name <]})
+@item
+@strong{Filters} - Active name, duration and size filters
 @item
 @strong{Recursive indicator} - @code{[recursive]} when browsing subdirectories
-@item
-@strong{Count} - Total number of videos and how many are currently displayed after filtering
 @end itemize
+
+The buffer itself contains only thumbnails; all gallery state lives in the
+header line.
 
 @node Keybindings
 @chapter Keybindings
@@ -302,6 +323,10 @@ Move forward/backward to adjacent thumbnail (@code{dired-video-thumbnail-forward
 @itemx @key{down}
 Move up/down one row (@code{dired-video-thumbnail-previous-row},
 @code{dired-video-thumbnail-next-row})
+
+@item C-l
+Re-centre the grid around the current video, cycling between centre, top and
+bottom (@code{dired-video-thumbnail-recenter-top-bottom})
 
 @item d
 Switch to associated dired buffer (@code{dired-video-thumbnail-goto-dired})
@@ -353,12 +378,27 @@ Invert all marks (@code{dired-video-thumbnail-toggle-all-marks})
 
 @section Deletion Commands
 
+Deleted videos are moved to the system trash, so they can be recovered.
+
 @table @kbd
 @item D
 Delete video at point with confirmation (@code{dired-video-thumbnail-delete})
 
+@item C-d
+Delete video at point and stay on the next thumbnail, without rebuilding the
+grid (@code{dired-video-thumbnail-delete-and-next})
+
 @item x
 Delete marked videos with confirmation (@code{dired-video-thumbnail-delete-marked})
+@end table
+
+@section Moving Commands
+
+@table @kbd
+@item v
+Move the marked videos (or the video at point) to a target directory
+(@code{dired-video-thumbnail-move}). The directory is created if needed, and
+existing files are only overwritten after confirmation.
 @end table
 
 @section Display Commands
@@ -373,10 +413,14 @@ Increase/decrease thumbnail size (@code{dired-video-thumbnail-increase-size},
 Refresh the display (@code{dired-video-thumbnail-refresh})
 
 @item g
-Regenerate thumbnail for video at point (@code{dired-video-thumbnail-regenerate})
+Re-scan the source directory from disk and refresh (@code{dired-video-thumbnail-re-scan})
 
 @item G
-Regenerate all thumbnails (@code{dired-video-thumbnail-regenerate-all})
+Hard refresh: clear the gallery's cached thumbnails, re-scan and regenerate them
+(@code{dired-video-thumbnail-hard-refresh})
+
+@item C-r
+Regenerate the thumbnail at point (@code{dired-video-thumbnail-regenerate})
 
 @item R
 Toggle recursive search (@code{dired-video-thumbnail-toggle-recursive})
@@ -384,6 +428,9 @@ Toggle recursive search (@code{dired-video-thumbnail-toggle-recursive})
 @item w
 Toggle wrap display mode (@code{dired-video-thumbnail-toggle-wrap})
 @end table
+
+@code{dired-video-thumbnail-regenerate-all} is also available from the
+transient menu as @kbd{C-R}.
 
 @section Sorting Commands
 
@@ -439,6 +486,12 @@ Interactive filter selection (@code{dired-video-thumbnail-filter})
 Show help buffer with command summary (@code{dired-video-thumbnail-help})
 @end table
 
+@section Transient Menu
+
+Press @kbd{.} or @kbd{C-c .} in the thumbnail buffer to open a transient menu
+that provides access to all commands with a live state summary. Submenus group
+sorting, filtering, marking and display commands.
+
 @node Customization
 @chapter Customization
 
@@ -451,8 +504,12 @@ browse them interactively.
 * Cache Settings::              Cache directory configuration
 * Video Settings::              Video player and extensions
 * Mark Appearance::             Customizing mark indicators
+* Current-Thumbnail Highlight:: Outlining the selected thumbnail
 * Sorting Settings::            Default sort options
+* Per-Directory Settings::      Remembering choices per directory
 * Recursive Settings::          Directory search behavior
+* File Validation::             Ignoring empty or corrupt files
+* Confirmation::                Skipping prompts for file actions
 * Advanced Settings::           Other customization options
 @end menu
 
@@ -607,6 +664,35 @@ Or via @code{use-package}:
 @end lisp
 @end defvr
 
+@node Current-Thumbnail Highlight
+@section Current-Thumbnail Highlight
+
+The thumbnail at point is outlined with the
+@code{dired-video-thumbnail-current-thumbnail} face, and the cursor is
+recolored to match. The outline is drawn inside the thumbnail, so
+navigating never changes the thumbnail sizes or re-flows the grid. Its
+color follows the active theme's @code{highlight} background unless the
+face's @code{:box} sets an explicit @code{:color}.
+
+@defopt dired-video-thumbnail-highlight-current-thumbnail
+Whether to outline the thumbnail at point. Default: @code{t}.
+@end defopt
+
+@defopt dired-video-thumbnail-highlight-cursor
+Whether to recolor the cursor to match the highlight, buffer-locally.
+Default: @code{t}.
+@end defopt
+
+@defvr {Face} dired-video-thumbnail-current-thumbnail
+Face for the outline. Customize the @code{:box} @code{:line-width} to change its
+thickness, or give it an explicit @code{:color}.
+
+@lisp
+(set-face-attribute 'dired-video-thumbnail-current-thumbnail nil
+                    :box '(:line-width -5 :color "orange"))
+@end lisp
+@end defvr
+
 @node Sorting Settings
 @section Sorting Settings
 
@@ -626,6 +712,36 @@ Default: @code{ascending}.
 @lisp
 (setq dired-video-thumbnail-sort-order 'descending)
 @end lisp
+@end defopt
+
+@node Per-Directory Settings
+@section Per-Directory Settings
+
+Sort order, filters and the thumbnail display height are remembered per
+directory. Changing them in a thumbnail buffer writes the choice into that
+directory's @file{.dir-locals.el} (under the nil class, merged with any existing
+entries), and opening the directory restores it. Only the package's own
+variables are ever written.
+
+@defopt dired-video-thumbnail-save-dir-settings
+Whether to remember sort, filter and display-height choices per directory.
+Default: @code{t}. Set to @code{nil} to keep such choices session-local.
+@end defopt
+
+@defopt dired-video-thumbnail-default-filter
+Default name/duration/size filter, as a plist or @code{nil} for no filter. The
+plist has the form @code{(:name REGEXP :duration-min SECONDS :duration-max
+SECONDS :size-min BYTES :size-max BYTES)}, where each value may be @code{nil}.
+
+@lisp
+(setq dired-video-thumbnail-default-filter
+      '(:name "holiday" :duration-min 30 :duration-max 600
+        :size-min 1048576 :size-max nil))
+@end lisp
+@end defopt
+
+@defopt dired-video-thumbnail-default-display-height
+Default thumbnail display height in pixels, or @code{nil} for the global value.
 @end defopt
 
 @node Recursive Settings
@@ -651,6 +767,30 @@ Default: @code{t}.
 @end lisp
 @end defopt
 
+@node File Validation
+@section File Validation
+
+@defopt dired-video-thumbnail-minimum-file-size
+Minimum file size in bytes for a video to be included. Files smaller than this
+are assumed to be corrupt or empty and are silently excluded. Set to 0 to
+disable the check. Default: @code{100}.
+@end defopt
+
+@defopt dired-video-thumbnail-validate-headers
+Whether to verify each candidate file's first 12 bytes against known video
+container signatures (ISO BMFF/MP4/MOV/M4V/3GP, Matroska/WebM, AVI, FLV, Ogg,
+ASF/WMV and MPEG program/elementary streams). Default: @code{nil}.
+@end defopt
+
+@node Confirmation
+@section Confirmation
+
+@defopt dired-video-thumbnail-auto-accept
+Whether to skip confirmation for file actions like deletion and moving. When
+non-@code{nil}, deleting videos, creating a move target directory and
+overwriting an existing file proceed without prompting. Default: @code{nil}.
+@end defopt
+
 @node Advanced Settings
 @section Advanced Settings
 
@@ -673,6 +813,9 @@ Here is a complete example configuration using @code{use-package}:
   (dired-video-thumbnail-sort-by 'date)
   (dired-video-thumbnail-sort-order 'descending)
   (dired-video-thumbnail-auto-recursive t)
+  (dired-video-thumbnail-auto-accept nil)
+  (dired-video-thumbnail-save-dir-settings t)
+  (dired-video-thumbnail-validate-headers nil)
   :custom-face
   (dired-video-thumbnail-mark ((t (:foreground "orange")))))
 @end lisp

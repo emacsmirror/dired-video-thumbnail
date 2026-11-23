@@ -11,7 +11,11 @@ project's main git repository: [[https://github.com/captainflasmr/dired-video-th
 
 * Versions
 
-** Unreleased
+** <2026-11-23 Mon> 0.4.0
+
+Feature parity with dired-image-thumbnail
+
+This release adds single-pass marking, an enhanced header line, asynchronous ffprobe metadata, current-thumbnail highlighting, trash-based deletion with delete-and-next and move-to-directory, recentering and nearest-thumbnail navigation, per-directory settings and galleries, file validation, and aligned refresh keybindings.
 
 File validation
 
