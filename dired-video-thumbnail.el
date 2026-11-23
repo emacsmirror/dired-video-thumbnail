@@ -1258,31 +1258,34 @@ scanning one character at a time."
     found))
 
 (defun dired-video-thumbnail--update-thumbnail (video-file thumb-path)
-  "Update the display for VIDEO-FILE with THUMB-PATH.
+  "Update VIDEO-FILE's thumbnail in every gallery that shows it.
 The thumbnail's mark border is preserved, so a thumbnail that finishes
-generating in the background does not lose its marked appearance."
-  (when-let ((buf (get-buffer "*Video Thumbnails*")))
+generating in the background does not lose its marked appearance.
+All galleries are updated because a file may be visible in more than
+one directory's gallery, for example in recursive mode."
+  (dolist (buf (buffer-list))
     (with-current-buffer buf
-      (let ((inhibit-read-only t))
-        (save-excursion
-          (goto-char (point-min))
-          (while (not (eobp))
-            (when-let ((file (get-text-property (point) 'dired-video-thumbnail-file)))
-              (when (string= file video-file)
-                (let ((start (point))
-                      (end (next-single-property-change (point)
-                                                        'dired-video-thumbnail-file
-                                                        nil (point-max))))
-                  (delete-region start end)
-                  (dired-video-thumbnail--insert-thumbnail
-                   video-file
-                   (or thumb-path :error)
-                   (dired-video-thumbnail--file-marked-p video-file)))))
-            (goto-char (or (next-single-property-change (point)
-                                                        'dired-video-thumbnail-file)
-                           (point-max))))))
-      ;; A replaced region can swallow the highlight overlay; redraw it.
-      (dired-video-thumbnail--update-current-highlight))))
+      (when (derived-mode-p 'dired-video-thumbnail-mode)
+        (let ((inhibit-read-only t))
+          (save-excursion
+            (goto-char (point-min))
+            (while (not (eobp))
+              (when-let ((file (get-text-property (point) 'dired-video-thumbnail-file)))
+                (when (string= file video-file)
+                  (let ((start (point))
+                        (end (next-single-property-change (point)
+                                                          'dired-video-thumbnail-file
+                                                          nil (point-max))))
+                    (delete-region start end)
+                    (dired-video-thumbnail--insert-thumbnail
+                     video-file
+                     (or thumb-path :error)
+                     (dired-video-thumbnail--file-marked-p video-file)))))
+              (goto-char (or (next-single-property-change (point)
+                                                          'dired-video-thumbnail-file)
+                             (point-max))))))
+        ;; A replaced region can swallow the highlight overlay; redraw it.
+        (dired-video-thumbnail--update-current-highlight)))))
 
 (defun dired-video-thumbnail--refresh-thumbnail (video-file)
   "Redraw the thumbnail for VIDEO-FILE in place.
@@ -1400,6 +1403,66 @@ nil if no colour is available."
                     (cons remap (assq-delete-all 'cursor base))
                   (assq-delete-all 'cursor base)))))
 
+;;; Per-directory galleries
+
+(defconst dired-video-thumbnail--thumbnail-buffer-prefix "*Video Thumbnails: "
+  "Prefix of per-gallery thumbnail buffer names.")
+
+(defun dired-video-thumbnail--gallery-stem (dir)
+  "Return a short, human-readable buffer-name stem for DIR."
+  (let* ((dir (directory-file-name (expand-file-name dir)))
+         (name (file-name-nondirectory dir))
+         (parent (file-name-nondirectory (file-name-directory dir))))
+    (cond ((and (stringp name) (not (string-empty-p name))) name)
+          ((and (stringp parent) (not (string-empty-p parent))) parent)
+          (t "videos"))))
+
+(defun dired-video-thumbnail--unique-gallery-stem (stem)
+  "Return a variant of STEM not used by any existing gallery buffer."
+  (let ((candidate stem)
+        (counter 1))
+    (while (get-buffer (concat dired-video-thumbnail--thumbnail-buffer-prefix
+                               candidate "*"))
+      (setq counter (1+ counter)
+            candidate (format "%s<%d>" stem counter)))
+    candidate))
+
+(defun dired-video-thumbnail--find-gallery-buffer (dired-buf source-dir)
+  "Return the existing gallery thumbnail buffer for DIRED-BUF or SOURCE-DIR.
+SOURCE-DIR is matched by directory, so reopening a directory (or
+revisiting it through a new Dired buffer) reuses its gallery instead
+of creating a duplicate."
+  (catch 'found
+    (dolist (buf (buffer-list))
+      (when (with-current-buffer buf
+              (and (derived-mode-p 'dired-video-thumbnail-mode)
+                   (or (and dired-buf
+                            (eq dired-video-thumbnail--dired-buffer dired-buf))
+                       (and source-dir
+                            (equal (file-name-as-directory
+                                    (expand-file-name
+                                     (or dired-video-thumbnail--source-dir
+                                         default-directory)))
+                                   (file-name-as-directory
+                                    (expand-file-name source-dir)))))))
+        (throw 'found buf)))
+    nil))
+
+(defun dired-video-thumbnail--ensure-gallery-name (dired-buf source-dir)
+  "Return the name of the gallery buffer for DIRED-BUF or SOURCE-DIR.
+The directory's existing gallery is reused when there is one,
+otherwise a new, unique buffer name is generated."
+  (setq source-dir (file-name-as-directory
+                    (expand-file-name (or source-dir default-directory))))
+  (let ((existing (dired-video-thumbnail--find-gallery-buffer
+                   dired-buf source-dir)))
+    (if (buffer-live-p existing)
+        (buffer-name existing)
+      (concat dired-video-thumbnail--thumbnail-buffer-prefix
+              (dired-video-thumbnail--unique-gallery-stem
+               (dired-video-thumbnail--gallery-stem source-dir))
+              "*"))))
+
 (defun dired-video-thumbnail--display-buffer (videos source-dir dired-buf &optional recursive)
   "Display VIDEOS in a thumbnail buffer.
 SOURCE-DIR is the original dired directory.
@@ -1422,7 +1485,13 @@ SORT-BY, SORT-ORDER, FILTER-NAME, FILTER-DUR-MIN, FILTER-DUR-MAX,
 FILTER-SIZE-MIN, FILTER-SIZE-MAX preserve existing state.
 RECURSIVE indicates if videos were found recursively.
 LOCAL-MARKS is a hash table of locally marked files (for subdirectory files)."
-  (let ((buf (get-buffer-create "*Video Thumbnails*"))
+  (let ((buf (if (derived-mode-p 'dired-video-thumbnail-mode)
+                 ;; Refreshing an existing gallery: rebuild it in place,
+                 ;; leaving other directories' galleries untouched.
+                 (current-buffer)
+               (get-buffer-create
+                (dired-video-thumbnail--ensure-gallery-name
+                 dired-buf source-dir))))
         (col 0))
     (with-current-buffer buf
       (let ((inhibit-read-only t))

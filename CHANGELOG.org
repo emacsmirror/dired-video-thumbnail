@@ -13,6 +13,10 @@ project's main git repository: [[https://github.com/captainflasmr/dired-video-th
 
 ** Unreleased
 
+Per-directory galleries
+
+Each directory now gets its own thumbnail buffer, named `*Video Thumbnails: DIRECTORY*`, instead of sharing one global buffer. Opening a second directory leaves the first gallery intact, reopening a directory reuses its gallery and remembered settings, and background thumbnail updates redraw the file in every gallery that shows it. Galleries with the same directory basename get a unique suffix.
+
 Per-directory settings
 
 Sort order, filters and the thumbnail display height are now remembered per directory in that directory's `.dir-locals.el` and restored when the gallery is reopened. Only the package's own variables are written; other entries and classes in the file are preserved. Two new options, `dired-video-thumbnail-default-filter` and `dired-video-thumbnail-default-display-height`, provide directory-wide defaults, and `dired-video-thumbnail-save-dir-settings` turns persistence off. The gallery's video lists are now buffer-local.

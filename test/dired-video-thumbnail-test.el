@@ -24,6 +24,13 @@
   (file-name-directory (or load-file-name buffer-file-name))
   "Directory containing test files.")
 
+(defun dired-video-thumbnail-test-kill-galleries ()
+  "Kill all video thumbnail gallery buffers."
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when (derived-mode-p 'dired-video-thumbnail-mode)
+        (kill-buffer buf)))))
+
 ;;; Tests for utility functions
 
 (ert-deftest dired-video-thumbnail-test-video-p ()
@@ -850,6 +857,67 @@
                        (expand-file-name ".dir-locals.el" dir))))
       (delete-directory dir t))))
 
+;;; Tests for per-directory galleries
+
+(ert-deftest dired-video-thumbnail-test-gallery-stem ()
+  "Test the gallery buffer-name stem."
+  (should (string= (dired-video-thumbnail--gallery-stem "/tmp/videos/")
+                   "videos"))
+  (should (string= (dired-video-thumbnail--gallery-stem "/tmp/videos")
+                   "videos"))
+  (should (string= (dired-video-thumbnail--gallery-stem "/")
+                   "videos")))
+
+(ert-deftest dired-video-thumbnail-test-per-directory-galleries ()
+  "Test that each directory gets its own gallery buffer."
+  (let* ((dir1 (make-temp-file "video-gallery-one" t))
+         (dir2 (make-temp-file "video-gallery-two" t))
+         (f1 (expand-file-name "a.mp4" dir1))
+         (f2 (expand-file-name "b.mp4" dir2))
+         (origin (current-buffer))
+         (dbuf1 nil))
+    (unwind-protect
+        (progn
+          (write-region "" nil f1)
+          (write-region "" nil f2)
+          (cl-letf (((symbol-function 'dired-video-thumbnail--generate-missing)
+                     #'ignore))
+            (dired dir1)
+            (setq dbuf1 (current-buffer))
+            (dired-video-thumbnail)
+            (let ((buf1 (current-buffer)))
+              (should (string-prefix-p "*Video Thumbnails: " (buffer-name buf1)))
+              (should (equal dired-video-thumbnail--current-videos (list f1)))
+              (dired dir2)
+              (dired-video-thumbnail)
+              (let ((buf2 (current-buffer)))
+                (should (string-prefix-p "*Video Thumbnails: " (buffer-name buf2)))
+                (should-not (eq buf1 buf2))
+                (should (equal dired-video-thumbnail--current-videos (list f2)))
+                ;; The first gallery keeps its own state.
+                (with-current-buffer buf1
+                  (should (equal dired-video-thumbnail--current-videos (list f1))))
+                ;; A background thumbnail update only touches the
+                ;; gallery that shows the file.
+                (dired-video-thumbnail--update-thumbnail
+                 f1 "/nonexistent/thumb.jpg")
+                (with-current-buffer buf1
+                  (should (equal (get-text-property
+                                  (point-min) 'dired-video-thumbnail-thumb-state)
+                                 "/nonexistent/thumb.jpg")))
+                (with-current-buffer buf2
+                  (should-not (get-text-property
+                               (point-min) 'dired-video-thumbnail-thumb-state))))
+              ;; Reopening dir1 reuses its gallery.
+              (with-current-buffer dbuf1
+                (dired-video-thumbnail)
+                (should (eq (current-buffer) buf1))
+                (should (equal dired-video-thumbnail--current-videos (list f1)))))))
+      (dired-video-thumbnail-test-kill-galleries)
+      (set-buffer origin)
+      (delete-directory dir1 t)
+      (delete-directory dir2 t))))
+
 ;;; Tests for refresh commands
 
 (ert-deftest dired-video-thumbnail-test-re-scan ()
@@ -883,8 +951,7 @@
           (should (dired-video-thumbnail--position-of-file a))
           (should (dired-video-thumbnail--position-of-file c))
           (should-not (dired-video-thumbnail--position-of-file b)))
-      (when (get-buffer "*Video Thumbnails*")
-        (kill-buffer "*Video Thumbnails*"))
+      (dired-video-thumbnail-test-kill-galleries)
       (set-buffer origin)
       (delete-directory dir t))))
 
@@ -909,8 +976,7 @@
                        #'ignore))
               (dired-video-thumbnail-hard-refresh))
             (should-not (file-exists-p cache-path))))
-      (when (get-buffer "*Video Thumbnails*")
-        (kill-buffer "*Video Thumbnails*"))
+      (dired-video-thumbnail-test-kill-galleries)
       (set-buffer origin)
       (delete-directory dir t))))
 
