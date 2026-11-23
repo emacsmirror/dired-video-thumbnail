@@ -410,7 +410,7 @@ If ffmpeg/ffprobe are not in your PATH:
 
 Thumbnails are cached based on the file path and modification time. If you modify a video file, the thumbnail will be automatically regenerated on next view.
 
-Video metadata (dimensions, duration) is also cached in memory to avoid repeated calls to =ffprobe=.
+Video metadata (dimensions, duration) is also cached in memory to avoid repeated calls to =ffprobe=. Metadata is queried asynchronously, up to four files at a time, so opening a directory with many videos never blocks Emacs; the header line fills in resolutions and durations as the results arrive. Failed queries are retried up to three times per file version, and a rewritten file (new modification time) is queried again.
 
 To manually clear the thumbnail cache:
 

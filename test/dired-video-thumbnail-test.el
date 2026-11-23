@@ -275,6 +275,67 @@
       (should (= (plist-get info :height) 1080))
       (should (= (plist-get info :duration) 120)))))
 
+(ert-deftest dired-video-thumbnail-test-parse-video-info ()
+  "Test parsing ffprobe CSV output."
+  (should (equal (dired-video-thumbnail--parse-video-info "1920,1080,125.5\n")
+                 '(:width 1920 :height 1080 :duration 125.5)))
+  (should (equal (dired-video-thumbnail--parse-video-info "640,480,\n")
+                 '(:width 640 :height 480 :duration nil)))
+  (should-not (dired-video-thumbnail--parse-video-info "N/A\n"))
+  (should-not (dired-video-thumbnail--parse-video-info "")))
+
+(ert-deftest dired-video-thumbnail-test-info-query-allowed-p ()
+  "Test the video-info retry budget."
+  (let* ((temp-dir (make-temp-file "video-info-retry" t))
+         (file (expand-file-name "a.mp4" temp-dir))
+         (dired-video-thumbnail--info-attempts (make-hash-table :test 'equal)))
+    (unwind-protect
+        (progn
+          (write-region "" nil file)
+          (should (dired-video-thumbnail--info-query-allowed-p file))
+          (let ((mtime (file-attribute-modification-time
+                        (file-attributes file))))
+            ;; Fewer than three failed attempts: retry allowed.
+            (puthash file (cons mtime 2)
+                     dired-video-thumbnail--info-attempts)
+            (should (dired-video-thumbnail--info-query-allowed-p file))
+            ;; Three failed attempts for this version: no more retries.
+            (puthash file (cons mtime 3)
+                     dired-video-thumbnail--info-attempts)
+            (should-not (dired-video-thumbnail--info-query-allowed-p file))
+            ;; A rewritten file gets a fresh budget.
+            (puthash file (cons (time-add mtime 60) 3)
+                     dired-video-thumbnail--info-attempts)
+            (should (dired-video-thumbnail--info-query-allowed-p file))))
+      (delete-directory temp-dir t))))
+
+(ert-deftest dired-video-thumbnail-test-info-queue-dedup ()
+  "Test that a video-info query is queued only once per file."
+  (let* ((temp-dir (make-temp-file "video-info-queue" t))
+         (file (expand-file-name "a.mp4" temp-dir))
+         (dired-video-thumbnail--video-info-cache (make-hash-table :test 'equal))
+         (dired-video-thumbnail--info-pending (make-hash-table :test 'equal))
+         (dired-video-thumbnail--info-attempts (make-hash-table :test 'equal))
+         (dired-video-thumbnail--info-queue nil)
+         (dired-video-thumbnail--info-running 0)
+         (started nil))
+    (unwind-protect
+        (progn
+          (write-region "" nil file)
+          (with-temp-buffer
+            (dired-video-thumbnail-mode)
+            (cl-letf (((symbol-function
+                        'dired-video-thumbnail--start-info-process)
+                       (lambda (f) (push f started))))
+              (should-not (dired-video-thumbnail--get-video-info file))
+              (should-not (dired-video-thumbnail--get-video-info file))
+              (should (equal started (list file)))
+              (should (eq (gethash file dired-video-thumbnail--info-pending)
+                          'running))
+              (should (= dired-video-thumbnail--info-running 1))
+              (should (null dired-video-thumbnail--info-queue)))))
+      (delete-directory temp-dir t))))
+
 ;;; Tests for finding videos
 
 (ert-deftest dired-video-thumbnail-test-find-videos-non-recursive ()

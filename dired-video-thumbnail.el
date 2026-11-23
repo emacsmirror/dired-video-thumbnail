@@ -191,6 +191,28 @@ adjust the colours."
 (defvar dired-video-thumbnail--video-info-cache (make-hash-table :test 'equal)
   "Cache for video metadata (dimensions, duration).")
 
+(defvar dired-video-thumbnail--info-pending (make-hash-table :test 'equal)
+  "Video-info queries that are queued or running, keyed by file name.
+Value is `queued' while waiting for a free process slot and `running'
+once a process has been started.  Global, so the same file is never
+queried twice from different galleries.")
+
+(defvar dired-video-thumbnail--info-attempts (make-hash-table :test 'equal)
+  "Failed video-info query attempts, keyed by file name.
+Value is (MODIFICATION-TIME . COUNT).  Queries are capped at three
+attempts per file version, so a permanently broken file cannot cause
+endless process churn; a rewritten file (new modification time) is
+queried again.")
+
+(defvar dired-video-thumbnail--info-queue nil
+  "Queue of (BUFFER . FILE) video-info queries waiting for a process slot.")
+
+(defvar dired-video-thumbnail--info-running 0
+  "Number of video-info query processes currently running.")
+
+(defvar dired-video-thumbnail--info-max-processes 4
+  "Maximum number of concurrent video-info query processes.")
+
 (defvar dired-video-thumbnail--current-videos nil
   "List of videos in the current thumbnail buffer.")
 
@@ -452,31 +474,133 @@ header line and later checks stay accurate without rescanning dired."
 
 ;;; Video information
 
+(defun dired-video-thumbnail--parse-video-info (output)
+  "Parse ffprobe CSV OUTPUT into a video info plist, or nil.
+The expected format is WIDTH,HEIGHT,DURATION, where DURATION may be
+empty.  Returns nil when OUTPUT contains no usable dimensions."
+  (when (string-match "\\([0-9]+\\),\\([0-9]+\\),?\\([0-9.]*\\)" output)
+    (list :width (string-to-number (match-string 1 output))
+          :height (string-to-number (match-string 2 output))
+          :duration (let ((dur (match-string 3 output)))
+                      (if (and dur (not (string-empty-p dur)))
+                          (string-to-number dur)
+                        nil)))))
+
+(defun dired-video-thumbnail--info-query-allowed-p (file)
+  "Return non-nil if a new video-info query may be started for FILE.
+A file version (identified by its modification time) is queried at
+most three times, so a permanently broken file does not cause endless
+process churn."
+  (let* ((attrs (file-attributes file))
+         (mtime (and attrs (file-attribute-modification-time attrs)))
+         (attempt (gethash file dired-video-thumbnail--info-attempts)))
+    (or (null attempt)
+        (not (equal (car attempt) mtime))
+        (< (cdr attempt) 3))))
+
+(defun dired-video-thumbnail--pump-info-queue ()
+  "Start queued video-info queries, up to the concurrency limit."
+  (while (and dired-video-thumbnail--info-queue
+              (< dired-video-thumbnail--info-running
+                 dired-video-thumbnail--info-max-processes))
+    (let* ((item (pop dired-video-thumbnail--info-queue))
+           (buf (car item))
+           (file (cdr item)))
+      (if (not (and (buffer-live-p buf)
+                    (with-current-buffer buf
+                      (eq (gethash file dired-video-thumbnail--info-pending)
+                          'queued))))
+          ;; The gallery that queued the query is gone; forget it.
+          (remhash file dired-video-thumbnail--info-pending)
+        (setq dired-video-thumbnail--info-running
+              (1+ dired-video-thumbnail--info-running))
+        (with-current-buffer buf
+          (puthash file 'running dired-video-thumbnail--info-pending)
+          (dired-video-thumbnail--start-info-process file))))))
+
 (defun dired-video-thumbnail--get-video-info (video-file)
   "Get video information for VIDEO-FILE.
-Returns a plist with :width, :height, :duration, or nil on failure.
-Results are cached."
+Returns a plist with :width, :height, :duration, or nil when the
+information is not known yet.  Results are cached.  Unknown files are
+queried asynchronously with ffprobe when called from a thumbnail
+buffer; at most `dired-video-thumbnail--info-max-processes' queries run
+at once, so a large directory never blocks Emacs."
   (or (gethash video-file dired-video-thumbnail--video-info-cache)
-      (let ((info (dired-video-thumbnail--fetch-video-info video-file)))
-        (when info
-          (puthash video-file info dired-video-thumbnail--video-info-cache))
-        info)))
+      (progn
+        (when (and (derived-mode-p 'dired-video-thumbnail-mode)
+                   (not (gethash video-file dired-video-thumbnail--info-pending))
+                   (dired-video-thumbnail--info-query-allowed-p video-file))
+          (puthash video-file 'queued dired-video-thumbnail--info-pending)
+          (setq dired-video-thumbnail--info-queue
+                (nconc dired-video-thumbnail--info-queue
+                       (list (cons (current-buffer) video-file))))
+          (dired-video-thumbnail--pump-info-queue))
+        nil)))
 
-(defun dired-video-thumbnail--fetch-video-info (video-file)
-  "Fetch video information for VIDEO-FILE using ffprobe."
-  (condition-case nil
-      (let ((output (shell-command-to-string
-                     (format "%s -v error -select_streams v:0 -show_entries stream=width,height,duration -of csv=p=0 %s"
-                             dired-video-thumbnail-ffprobe-program
-                             (shell-quote-argument video-file)))))
-        (when (string-match "\\([0-9]+\\),\\([0-9]+\\),?\\([0-9.]*\\)" output)
-          (list :width (string-to-number (match-string 1 output))
-                :height (string-to-number (match-string 2 output))
-                :duration (let ((dur (match-string 3 output)))
-                            (if (and dur (not (string-empty-p dur)))
-                                (string-to-number dur)
-                              nil)))))
-    (error nil)))
+(defun dired-video-thumbnail--start-info-process (file)
+  "Start an asynchronous ffprobe process to get information for FILE."
+  (let ((proc-buf (generate-new-buffer " *dired-video-thumb-info*"))
+        (file-attr file))
+    (condition-case nil
+        (make-process
+         :name "dired-video-thumb-info"
+         :buffer proc-buf
+         :command (list dired-video-thumbnail-ffprobe-program
+                        "-v" "error"
+                        "-select_streams" "v:0"
+                        "-show_entries" "stream=width,height,duration"
+                        "-of" "csv=p=0"
+                        (expand-file-name file))
+         :noquery t
+         :sentinel
+         (lambda (proc _event)
+           (when (eq (process-status proc) 'exit)
+             (unwind-protect
+                 (when (buffer-live-p (process-buffer proc))
+                   (with-current-buffer (process-buffer proc)
+                     (let ((info (dired-video-thumbnail--parse-video-info
+                                  (buffer-string))))
+                       (when info
+                         (puthash file-attr info
+                                  dired-video-thumbnail--video-info-cache)))))
+               (when (buffer-live-p (process-buffer proc))
+                 (kill-buffer (process-buffer proc)))
+               (dired-video-thumbnail--info-query-finished file-attr)))))
+      (file-error
+       (kill-buffer proc-buf)
+       (dired-video-thumbnail--info-query-finished file-attr)))))
+
+(defun dired-video-thumbnail--info-query-finished (file)
+  "Record completion of the info query for FILE and continue the queue.
+Failed queries count against the retry budget.  When the queue drains,
+every thumbnail buffer's header line is refreshed, and buffers that
+sort or filter by duration are re-sorted and re-filtered now that the
+durations are known."
+  (unless (gethash file dired-video-thumbnail--video-info-cache)
+    (let* ((attrs (file-attributes file))
+           (mtime (and attrs (file-attribute-modification-time attrs)))
+           (attempt (gethash file dired-video-thumbnail--info-attempts))
+           (count (if (and attempt (equal (car attempt) mtime))
+                      (1+ (cdr attempt))
+                    1)))
+      (puthash file (cons mtime count) dired-video-thumbnail--info-attempts)))
+  (remhash file dired-video-thumbnail--info-pending)
+  (setq dired-video-thumbnail--info-running
+        (max 0 (1- dired-video-thumbnail--info-running)))
+  (dired-video-thumbnail--pump-info-queue)
+  (let ((drained (and (null dired-video-thumbnail--info-queue)
+                      (zerop dired-video-thumbnail--info-running))))
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (when (derived-mode-p 'dired-video-thumbnail-mode)
+          (when (and drained
+                     (or (eq (or dired-video-thumbnail--sort-by
+                                 dired-video-thumbnail-sort-by)
+                             'duration)
+                         dired-video-thumbnail--filter-duration-min
+                         dired-video-thumbnail--filter-duration-max))
+            (dired-video-thumbnail--apply-sort-and-filter))
+          (force-mode-line-update))))))
 
 (defun dired-video-thumbnail--format-duration (seconds)
   "Format SECONDS as HH:MM:SS or MM:SS."
@@ -1002,7 +1126,10 @@ LOCAL-MARKS is a hash table of locally marked files (for subdirectory files)."
         (goto-char (point-min))
         ;; Move to first thumbnail
         (dired-video-thumbnail--snap-to-thumbnail)))
-    (pop-to-buffer buf)
+    ;; A refresh driven by a background callback runs with the
+    ;; thumbnail buffer current; do not steal focus from the user then.
+    (unless (eq (current-buffer) buf)
+      (pop-to-buffer buf))
     buf))
 
 ;;; Async generation queue
@@ -1134,6 +1261,8 @@ is automatically enabled."
       (let ((cache-path (dired-video-thumbnail--cache-path video)))
         (when (file-exists-p cache-path)
           (delete-file cache-path))
+        ;; Give the video-info query a fresh retry budget too.
+        (remhash video dired-video-thumbnail--info-attempts)
         (message "Regenerating thumbnail for %s..." (file-name-nondirectory video))
         (dired-video-thumbnail--generate-async
          video
@@ -1149,7 +1278,9 @@ is automatically enabled."
     (dolist (video dired-video-thumbnail--current-videos)
       (let ((cache-path (dired-video-thumbnail--cache-path video)))
         (when (file-exists-p cache-path)
-          (delete-file cache-path))))
+          (delete-file cache-path)))
+      ;; Give the video-info queries a fresh retry budget too.
+      (remhash video dired-video-thumbnail--info-attempts))
     (dired-video-thumbnail--generate-missing dired-video-thumbnail--current-videos)))
 
 (defun dired-video-thumbnail-next ()
@@ -1232,6 +1363,8 @@ Returns non-nil when a thumbnail for FILE was found."
   (when (yes-or-no-p "Clear all cached video thumbnails? ")
     (when (file-directory-p dired-video-thumbnail-cache-dir)
       (delete-directory dired-video-thumbnail-cache-dir t))
+    ;; Let failed video-info queries be retried from scratch.
+    (clrhash dired-video-thumbnail--info-attempts)
     (message "Thumbnail cache cleared")))
 
 (defun dired-video-thumbnail-toggle-recursive ()
