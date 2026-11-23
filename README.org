@@ -225,10 +225,21 @@ Marks are synchronised with the associated dired buffer, so marking a video in t
 
 ** Deletion
 
-| Key | Command                               | Description                               |
-|-----+---------------------------------------+-------------------------------------------|
-| =D= | ~dired-video-thumbnail-delete~        | Delete video at point (with confirmation) |
-| =x= | ~dired-video-thumbnail-delete-marked~ | Delete marked videos (with confirmation)  |
+Deleted videos are moved to the system trash, so they can be recovered.
+
+| Key   | Command                                 | Description                                 |
+|-------+-----------------------------------------+---------------------------------------------|
+| =D=   | ~dired-video-thumbnail-delete~          | Delete video at point (with confirmation)   |
+| =C-d= | ~dired-video-thumbnail-delete-and-next~ | Delete video and stay on the next thumbnail |
+| =x=   | ~dired-video-thumbnail-delete-marked~   | Delete marked videos (with confirmation)    |
+
+** Moving
+
+| Key | Command                      | Description                        |
+|-----+------------------------------+------------------------------------|
+| =v= | ~dired-video-thumbnail-move~ | Move marked videos to a directory  |
+
+The target directory is created if needed. Existing files at the destination are only overwritten after confirmation.
 
 ** Display
 
@@ -389,6 +400,14 @@ Control recursive directory searching behaviour:
 #+end_src
 
 When =dired-video-thumbnail-auto-recursive= is enabled and the current directory has no video files but has subdirectories, the package automatically searches recursively.
+
+** Automatic Confirmation
+
+File actions ask before deleting, creating a move target, or overwriting an existing file. Set `dired-video-thumbnail-auto-accept` to skip those prompts:
+
+#+begin_src emacs-lisp
+(setq dired-video-thumbnail-auto-accept t)
+#+end_src
 
 ** ffmpeg Path
 

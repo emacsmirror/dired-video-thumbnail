@@ -13,6 +13,10 @@ project's main git repository: [[https://github.com/captainflasmr/dired-video-th
 
 ** Unreleased
 
+Trash, delete-and-next and move-to-directory
+
+Deleting a video now moves it to the system trash instead of removing it permanently. `C-d` deletes the video at point and stays on the next thumbnail, removing just that thumbnail from the grid without a full refresh. `v` moves the marked videos (or the video at point) to a target directory, creating it when needed and confirming before overwriting existing files. The new =dired-video-thumbnail-auto-accept= option skips these confirmations. Deleting now also removes files from the buffer's master list, so they no longer reappear after a refresh.
+
 Current-thumbnail highlight
 
 The thumbnail at point is now outlined with the new `dired-video-thumbnail-current-thumbnail' face, and the cursor is recoloured to match. The outline is drawn inside the thumbnail so navigating never changes the thumbnail sizes or re-flows the grid, and its colour follows the active theme's `highlight' background unless the face pins an explicit colour. Both effects can be disabled with `dired-video-thumbnail-highlight-current-thumbnail' and `dired-video-thumbnail-highlight-cursor'.

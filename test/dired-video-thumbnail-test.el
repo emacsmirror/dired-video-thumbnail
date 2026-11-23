@@ -660,6 +660,85 @@
         (should (= (dired-video-thumbnail--position-of-file "/tmp/b.mp4") pos2))
         (should-not (dired-video-thumbnail--position-of-file "/tmp/c.mp4"))))))
 
+;;; Tests for file operations
+
+(ert-deftest dired-video-thumbnail-test-drop-from-state ()
+  "Test dropping a file from the current and all video lists."
+  (with-temp-buffer
+    (setq dired-video-thumbnail--current-videos
+          '("/tmp/a.mp4" "/tmp/b.mp4"))
+    (setq dired-video-thumbnail--all-videos
+          '("/tmp/a.mp4" "/tmp/b.mp4" "/tmp/c.mp4"))
+    (dired-video-thumbnail--drop-from-state "/tmp/a.mp4")
+    (should (equal dired-video-thumbnail--current-videos '("/tmp/b.mp4")))
+    (should (equal dired-video-thumbnail--all-videos
+                   '("/tmp/b.mp4" "/tmp/c.mp4")))))
+
+(ert-deftest dired-video-thumbnail-test-remove-thumbnail ()
+  "Test removing a single thumbnail from the buffer."
+  (with-temp-buffer
+    (insert "one two")
+    (put-text-property 1 4 'dired-video-thumbnail-file "/tmp/a.mp4")
+    (put-text-property 5 8 'dired-video-thumbnail-file "/tmp/b.mp4")
+    (dired-video-thumbnail--remove-thumbnail "/tmp/a.mp4")
+    (should-not (dired-video-thumbnail--position-of-file "/tmp/a.mp4"))
+    (should (dired-video-thumbnail--position-of-file "/tmp/b.mp4"))
+    (should (equal (buffer-string) "two"))))
+
+(ert-deftest dired-video-thumbnail-test-delete-and-next ()
+  "Test in-place removal of the current thumbnail."
+  (with-temp-buffer
+    (insert "one two")
+    (put-text-property 1 4 'dired-video-thumbnail-file "/tmp/a.mp4")
+    (put-text-property 5 8 'dired-video-thumbnail-file "/tmp/b.mp4")
+    (dired-video-thumbnail-mode)
+    (setq dired-video-thumbnail--current-videos
+          '("/tmp/a.mp4" "/tmp/b.mp4"))
+    (setq dired-video-thumbnail--all-videos
+          '("/tmp/a.mp4" "/tmp/b.mp4"))
+    (setq dired-video-thumbnail--dired-buffer nil)
+    (goto-char (point-min))
+    (let ((dired-video-thumbnail-auto-accept t)
+          (deleted nil))
+      (cl-letf (((symbol-function 'dired-video-thumbnail--trash-file)
+                 (lambda (f) (push f deleted))))
+        (dired-video-thumbnail-delete-and-next))
+      (should (equal deleted '("/tmp/a.mp4")))
+      (should (equal dired-video-thumbnail--current-videos '("/tmp/b.mp4")))
+      (should (equal dired-video-thumbnail--all-videos '("/tmp/b.mp4")))
+      (should-not (dired-video-thumbnail--position-of-file "/tmp/a.mp4"))
+      (should (dired-video-thumbnail--position-of-file "/tmp/b.mp4")))))
+
+(ert-deftest dired-video-thumbnail-test-move ()
+  "Test moving marked videos to a target directory."
+  (let* ((source (make-temp-file "video-move-src" t))
+         (target (expand-file-name "target" source))
+         (file1 (expand-file-name "a.mp4" source))
+         (file2 (expand-file-name "b.mp4" source))
+         (dired-video-thumbnail--current-videos (list file1 file2))
+         (dired-video-thumbnail--all-videos (list file1 file2))
+         (dired-video-thumbnail--local-marks (make-hash-table :test 'equal))
+         (dired-video-thumbnail--marked-set (make-hash-table :test 'equal))
+         (dired-video-thumbnail--marked-set-tick nil)
+         (dired-video-thumbnail--dired-buffer nil)
+         (dired-video-thumbnail--source-dir source)
+         (dired-video-thumbnail-auto-accept t))
+    (unwind-protect
+        (progn
+          (write-region "" nil file1)
+          (write-region "" nil file2)
+          ;; Mark only file1.
+          (puthash file1 t dired-video-thumbnail--marked-set)
+          (cl-letf (((symbol-function 'dired-video-thumbnail-refresh)
+                     #'ignore))
+            (dired-video-thumbnail-move target))
+          (should (file-exists-p (expand-file-name "a.mp4" target)))
+          (should-not (file-exists-p file1))
+          (should (file-exists-p file2))
+          (should (equal dired-video-thumbnail--current-videos (list file2)))
+          (should (equal dired-video-thumbnail--all-videos (list file2))))
+      (delete-directory source t))))
+
 ;;; Run all tests
 
 (provide 'dired-video-thumbnail-test)

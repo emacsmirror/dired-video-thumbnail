@@ -162,6 +162,15 @@ This is useful for video collections organised in year/category folders."
   :type 'boolean
   :group 'dired-video-thumbnail)
 
+(defcustom dired-video-thumbnail-auto-accept nil
+  "Whether to skip confirmation for file actions like deletion and moving.
+When non-nil, actions that normally ask for confirmation (deleting
+videos, creating a move target directory, overwriting an existing file)
+proceed without prompting."
+  :type 'boolean
+  :safe #'booleanp
+  :group 'dired-video-thumbnail)
+
 (defface dired-video-thumbnail-mark
   '((t :foreground "red"))
   "Face for the border around marked video thumbnails."
@@ -1680,40 +1689,68 @@ then the marks are applied in one pass each way."
         (when-let ((video (get-text-property (point) 'dired-video-thumbnail-file)))
           (list video)))))
 
+(defun dired-video-thumbnail--drop-from-state (file)
+  "Drop FILE from the current and all video lists."
+  (setq dired-video-thumbnail--current-videos
+        (delete file dired-video-thumbnail--current-videos))
+  (setq dired-video-thumbnail--all-videos
+        (delete file dired-video-thumbnail--all-videos)))
+
+(defun dired-video-thumbnail--revert-dired-buffer ()
+  "Revert the associated dired buffer, if any."
+  (when (and dired-video-thumbnail--dired-buffer
+             (buffer-live-p dired-video-thumbnail--dired-buffer))
+    (with-current-buffer dired-video-thumbnail--dired-buffer
+      (revert-buffer))))
+
+(defun dired-video-thumbnail--trash-file (file)
+  "Move FILE to the system trash."
+  (let ((delete-by-moving-to-trash t))
+    (delete-file file t)))
+
+(defun dired-video-thumbnail--remove-thumbnail (file)
+  "Remove the thumbnail for FILE from the current buffer.
+The following space separator is removed too, so no gap is left
+behind."
+  (when-let ((pos (dired-video-thumbnail--position-of-file file)))
+    (let ((inhibit-read-only t))
+      (save-excursion
+        (goto-char pos)
+        (let* ((start (point))
+               (end (next-single-property-change
+                     start 'dired-video-thumbnail-file nil (point-max))))
+          (when (and (< end (point-max))
+                     (= (char-after end) ?\s))
+            (setq end (1+ end)))
+          (delete-region start end))))))
+
 (defun dired-video-thumbnail-delete-marked ()
-  "Delete marked videos (or video at point if none marked)."
+  "Delete marked videos (or video at point if none marked).
+Files are moved to the system trash."
   (interactive)
   (let ((files (dired-video-thumbnail-get-marked)))
     (unless files
       (user-error "No videos to delete"))
-    (when (yes-or-no-p (format "Delete %d video(s)? " (length files)))
+    (when (or dired-video-thumbnail-auto-accept
+              (yes-or-no-p (format "Delete %d video(s)? " (length files))))
       (dolist (file files)
-        (delete-file file t)
-        (setq dired-video-thumbnail--current-videos
-              (delete file dired-video-thumbnail--current-videos)))
-      ;; Refresh dired buffer
-      (when (and dired-video-thumbnail--dired-buffer
-                 (buffer-live-p dired-video-thumbnail--dired-buffer))
-        (with-current-buffer dired-video-thumbnail--dired-buffer
-          (revert-buffer)))
+        (dired-video-thumbnail--trash-file file)
+        (dired-video-thumbnail--drop-from-state file))
+      (dired-video-thumbnail--revert-dired-buffer)
       (dired-video-thumbnail-refresh)
       (message "Deleted %d video(s)" (length files)))))
 
 (defun dired-video-thumbnail-delete ()
-  "Delete the video at point."
+  "Delete the video at point, moving it to the system trash."
   (interactive)
   (if-let ((video (get-text-property (point) 'dired-video-thumbnail-file)))
-      (when (yes-or-no-p (format "Delete %s? " (file-name-nondirectory video)))
+      (when (or dired-video-thumbnail-auto-accept
+                (yes-or-no-p (format "Delete %s? " (file-name-nondirectory video))))
         ;; Find the next video to move to after deletion
         (let ((index (cl-position video dired-video-thumbnail--current-videos :test #'equal)))
-          (delete-file video t)
-          (setq dired-video-thumbnail--current-videos
-                (delete video dired-video-thumbnail--current-videos))
-          ;; Refresh dired buffer
-          (when (and dired-video-thumbnail--dired-buffer
-                     (buffer-live-p dired-video-thumbnail--dired-buffer))
-            (with-current-buffer dired-video-thumbnail--dired-buffer
-              (revert-buffer)))
+          (dired-video-thumbnail--trash-file video)
+          (dired-video-thumbnail--drop-from-state video)
+          (dired-video-thumbnail--revert-dired-buffer)
           (dired-video-thumbnail-refresh)
           ;; Move to the same index position (or last if we deleted the last one)
           (when dired-video-thumbnail--current-videos
@@ -1721,6 +1758,57 @@ then the marks are applied in one pass each way."
               (dired-video-thumbnail--goto-nth target-index)))
           (message "Deleted %s" (file-name-nondirectory video))))
     (user-error "No video at point")))
+
+(defun dired-video-thumbnail-delete-and-next ()
+  "Delete the video at point and stay on the next thumbnail.
+The deleted thumbnail is removed in place, without rebuilding the
+whole grid, and the file is moved to the system trash."
+  (interactive)
+  (if-let ((video (get-text-property (point) 'dired-video-thumbnail-file)))
+      (when (or dired-video-thumbnail-auto-accept
+                (y-or-n-p (format "Delete %s? " (file-name-nondirectory video))))
+        (dired-video-thumbnail--trash-file video)
+        (dired-video-thumbnail--drop-from-state video)
+        (dired-video-thumbnail--revert-dired-buffer)
+        (dired-video-thumbnail--remove-thumbnail video)
+        (dired-video-thumbnail--snap-to-thumbnail)
+        (dired-video-thumbnail--update-current-highlight)
+        (force-mode-line-update)
+        (message "Deleted %s" (file-name-nondirectory video)))
+    (user-error "No video at point")))
+
+(defun dired-video-thumbnail-move (target-dir)
+  "Move the marked videos, or the video at point, into TARGET-DIR.
+TARGET-DIR is created if it does not exist (confirming first, see
+`dired-video-thumbnail-auto-accept').  Files already present at the
+destination are overwritten only after confirmation.  The thumbnail
+display and the associated Dired buffer are refreshed afterwards."
+  (interactive
+   (list (read-directory-name "Move to directory: "
+                              (or dired-video-thumbnail--source-dir
+                                  default-directory))))
+  (let* ((files (dired-video-thumbnail-get-marked))
+         (target (file-name-as-directory (expand-file-name target-dir))))
+    (unless files
+      (user-error "No videos to move"))
+    (unless (file-directory-p target)
+      (if (or dired-video-thumbnail-auto-accept
+              (yes-or-no-p (format "Create directory %s? " target)))
+          (make-directory target t)
+        (user-error "Aborted")))
+    (let ((moved 0))
+      (dolist (file files)
+        (let ((dest (expand-file-name (file-name-nondirectory file) target)))
+          (when (or (not (file-exists-p dest))
+                    dired-video-thumbnail-auto-accept
+                    (yes-or-no-p (format "%s exists; overwrite? " dest)))
+            (rename-file file dest t)
+            (setq moved (1+ moved))
+            (dired-video-thumbnail--drop-from-state file))))
+      (dired-video-thumbnail--revert-dired-buffer)
+      (dired-video-thumbnail-refresh)
+      (message "Moved %d video%s to %s"
+               moved (if (= moved 1) "" "s") target))))
 
 (defun dired-video-thumbnail--goto-nth (n)
   "Move point to the Nth thumbnail (0-indexed)."
@@ -1872,8 +1960,10 @@ Accepts formats like: 90, 1:30, 1:30:00"
     (princ "  M            Mark all\n")
     (princ "  t            Toggle all marks\n\n")
     (princ "File Operations:\n")
-    (princ "  D            Delete video at point\n")
+    (princ "  D            Delete video at point (to trash)\n")
+    (princ "  C-d          Delete video and stay on next\n")
     (princ "  x            Delete marked videos\n")
+    (princ "  v            Move marked videos to a directory\n")
     (princ "  d            Go to Dired buffer\n\n")
     (princ "Display:\n")
     (princ "  +/-          Increase/decrease size\n")
@@ -1954,6 +2044,8 @@ Accepts formats like: 90, 1:30, 1:30:00"
     (define-key map (kbd "G") #'dired-video-thumbnail-regenerate-all)
     (define-key map (kbd "d") #'dired-video-thumbnail-goto-dired)
     (define-key map (kbd "D") #'dired-video-thumbnail-delete)
+    (define-key map (kbd "C-d") #'dired-video-thumbnail-delete-and-next)
+    (define-key map (kbd "v") #'dired-video-thumbnail-move)
     (define-key map (kbd "q") #'quit-window)
     (define-key map (kbd "Q") #'dired-video-thumbnail-quit-and-kill)
     (define-key map (kbd "?") #'dired-video-thumbnail-help)
