@@ -13,6 +13,10 @@ project's main git repository: [[https://github.com/captainflasmr/dired-video-th
 
 ** Unreleased
 
+Keybinding alignment (breaking change)
+
+`g` now re-scans the source directory and refreshes the display, matching Dired's `g`, and `G` performs a hard refresh that clears the cached thumbnails for the gallery, re-scans and regenerates them. The single-thumbnail regenerate command moved to `C-r`; the regenerate-all command remains available as `C-R` in the transient menu. The transient display submenu moved from `v` to `V`, freeing `v` for move-to-directory. Existing keybindings for `g` and `G` therefore change behaviour.
+
 Recentering and nearest-thumbnail navigation
 
 `C-l` now re-centres the thumbnail grid around the video at point, cycling between centre, top and bottom like `recenter-top-bottom`. Snapping point to a thumbnail now uses property-change boundaries and a nearest-thumbnail search, so point always lands on a real video even in gaps between rows.

@@ -771,6 +771,70 @@
           (should (equal dired-video-thumbnail--all-videos (list file2))))
       (delete-directory source t))))
 
+;;; Tests for refresh commands
+
+(ert-deftest dired-video-thumbnail-test-re-scan ()
+  "Test re-scanning the source directory from disk."
+  (let* ((dir (make-temp-file "video-rescan" t))
+         (a (expand-file-name "a.mp4" dir))
+         (b (expand-file-name "b.mp4" dir))
+         (c (expand-file-name "c.mp4" dir))
+         (origin (current-buffer))
+         (dired-video-thumbnail-cache-dir (expand-file-name "cache" dir)))
+    (unwind-protect
+        (progn
+          (write-region "" nil a)
+          (write-region "" nil b)
+          (dired dir)
+          (cl-letf (((symbol-function 'dired-video-thumbnail--generate-missing)
+                     #'ignore))
+            (dired-video-thumbnail))
+          (should (equal (sort (copy-sequence dired-video-thumbnail--all-videos)
+                               #'string<)
+                         (list a b)))
+          ;; Change the directory contents externally.
+          (delete-file b)
+          (write-region "" nil c)
+          (cl-letf (((symbol-function 'dired-video-thumbnail--generate-missing)
+                     #'ignore))
+            (dired-video-thumbnail-re-scan))
+          (should (equal (sort (copy-sequence dired-video-thumbnail--all-videos)
+                               #'string<)
+                         (list a c)))
+          (should (dired-video-thumbnail--position-of-file a))
+          (should (dired-video-thumbnail--position-of-file c))
+          (should-not (dired-video-thumbnail--position-of-file b)))
+      (when (get-buffer "*Video Thumbnails*")
+        (kill-buffer "*Video Thumbnails*"))
+      (set-buffer origin)
+      (delete-directory dir t))))
+
+(ert-deftest dired-video-thumbnail-test-hard-refresh ()
+  "Test that hard refresh deletes the cached thumbnails."
+  (let* ((dir (make-temp-file "video-hard-refresh" t))
+         (a (expand-file-name "a.mp4" dir))
+         (origin (current-buffer))
+         (dired-video-thumbnail-cache-dir (expand-file-name "cache" dir))
+         (dired-video-thumbnail-auto-accept t))
+    (unwind-protect
+        (progn
+          (write-region "" nil a)
+          (dired dir)
+          (cl-letf (((symbol-function 'dired-video-thumbnail--generate-missing)
+                     #'ignore))
+            (dired-video-thumbnail))
+          (let ((cache-path (dired-video-thumbnail--cache-path a)))
+            (write-region "thumb" nil cache-path)
+            (should (file-exists-p cache-path))
+            (cl-letf (((symbol-function 'dired-video-thumbnail-re-scan)
+                       #'ignore))
+              (dired-video-thumbnail-hard-refresh))
+            (should-not (file-exists-p cache-path))))
+      (when (get-buffer "*Video Thumbnails*")
+        (kill-buffer "*Video Thumbnails*"))
+      (set-buffer origin)
+      (delete-directory dir t))))
+
 ;;; Run all tests
 
 (provide 'dired-video-thumbnail-test)

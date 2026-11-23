@@ -77,10 +77,15 @@
 (declare-function dired-video-thumbnail-toggle-wrap "dired-video-thumbnail")
 (declare-function dired-video-thumbnail-toggle-recursive "dired-video-thumbnail")
 (declare-function dired-video-thumbnail-refresh "dired-video-thumbnail")
+(declare-function dired-video-thumbnail-re-scan "dired-video-thumbnail")
+(declare-function dired-video-thumbnail-hard-refresh "dired-video-thumbnail")
 (declare-function dired-video-thumbnail-regenerate "dired-video-thumbnail")
 (declare-function dired-video-thumbnail-regenerate-all "dired-video-thumbnail")
 (declare-function dired-video-thumbnail-delete "dired-video-thumbnail")
+(declare-function dired-video-thumbnail-delete-and-next "dired-video-thumbnail")
 (declare-function dired-video-thumbnail-delete-marked "dired-video-thumbnail")
+(declare-function dired-video-thumbnail-move "dired-video-thumbnail")
+(declare-function dired-video-thumbnail-recenter-top-bottom "dired-video-thumbnail")
 (declare-function dired-video-thumbnail-clear-cache "dired-video-thumbnail")
 (declare-function dired-video-thumbnail-help "dired-video-thumbnail")
 (declare-function dired-video-thumbnail-quit-and-kill "dired-video-thumbnail")
@@ -169,8 +174,10 @@
    ("R" "Recursive" dired-video-thumbnail-toggle-recursive :transient nil)]
   ["Refresh"
    ("r" "Refresh display" dired-video-thumbnail-refresh :transient nil)
-   ("g" "Regenerate current" dired-video-thumbnail-regenerate :transient nil)
-   ("G" "Regenerate all" dired-video-thumbnail-regenerate-all :transient nil)])
+   ("g" "Re-scan and refresh" dired-video-thumbnail-re-scan :transient nil)
+   ("G" "Hard refresh (clear cache)" dired-video-thumbnail-hard-refresh :transient nil)
+   ("C-r" "Regenerate current" dired-video-thumbnail-regenerate :transient nil)
+   ("C-R" "Regenerate all" dired-video-thumbnail-regenerate-all :transient nil)])
 
 ;;; Main transient menu
 
@@ -183,6 +190,7 @@
     ("p" "Previous" dired-video-thumbnail-previous :transient t)
     ("C-n" "Next row" dired-video-thumbnail-next-row :transient t)
     ("C-p" "Previous row" dired-video-thumbnail-previous-row :transient t)
+    ("C-l" "Recentre grid" dired-video-thumbnail-recenter-top-bottom :transient nil)
     ("d" "Go to dired" dired-video-thumbnail-goto-dired :transient nil)]
    ["Playback"
     ("RET" "Play video" dired-video-thumbnail-play :transient nil)
@@ -202,17 +210,21 @@
     ("t" "Toggle all marks" dired-video-thumbnail-toggle-all-marks :transient nil)]
    ["Delete"
     ("D" "Delete current" dired-video-thumbnail-delete :transient nil)
+    ("C-d" "Delete, move to next" dired-video-thumbnail-delete-and-next :transient nil)
     ("x" "Delete marked" dired-video-thumbnail-delete-marked :transient nil)]
    ["Display"
-    ("v" "Display menu..." dired-video-thumbnail-transient-display :transient nil)
+    ("V" "Display menu..." dired-video-thumbnail-transient-display :transient nil)
     ("+" "Larger thumbnails" dired-video-thumbnail-increase-size :transient t)
     ("-" "Smaller thumbnails" dired-video-thumbnail-decrease-size :transient t)
     ("w" "Toggle wrap" dired-video-thumbnail-toggle-wrap :transient nil)
     ("R" "Toggle recursive" dired-video-thumbnail-toggle-recursive :transient nil)]
    ["Other"
-    ("g" "Regenerate thumbnail" dired-video-thumbnail-regenerate :transient nil)
-    ("G" "Regenerate all" dired-video-thumbnail-regenerate-all :transient nil)
+    ("g" "Re-scan and refresh" dired-video-thumbnail-re-scan :transient nil)
+    ("G" "Hard refresh (clear cache)" dired-video-thumbnail-hard-refresh :transient nil)
+    ("C-r" "Regenerate thumbnail" dired-video-thumbnail-regenerate :transient nil)
+    ("C-R" "Regenerate all" dired-video-thumbnail-regenerate-all :transient nil)
     ("C" "Clear cache" dired-video-thumbnail-clear-cache :transient nil)
+    ("v" "Move to directory..." dired-video-thumbnail-move :transient nil)
     ("?" "Help" dired-video-thumbnail-help :transient nil)
     ("q" "Quit menu" transient-quit-one)
     ("Q" "Quit buffer" dired-video-thumbnail-quit-and-kill :transient nil)]])

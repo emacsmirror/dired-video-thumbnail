@@ -1471,6 +1471,66 @@ is automatically enabled."
       (when current-file
         (dired-video-thumbnail--goto-file current-file)))))
 
+(defun dired-video-thumbnail-re-scan (&optional preferred-target)
+  "Re-scan disk for videos in the current thumbnail buffer and refresh.
+Useful after files have been renamed, added or removed externally.
+If PREFERRED-TARGET is provided, move point there after refreshing."
+  (interactive)
+  (unless (derived-mode-p 'dired-video-thumbnail-mode)
+    (user-error "Not in a video thumbnail buffer"))
+  (unless dired-video-thumbnail--source-dir
+    (user-error "No source directory for this gallery"))
+  (let ((current-file (or preferred-target
+                          (get-text-property (point) 'dired-video-thumbnail-file)))
+        (videos (dired-video-thumbnail--find-videos
+                 dired-video-thumbnail--source-dir
+                 dired-video-thumbnail--recursive)))
+    (if (not videos)
+        (message "No video files found%s"
+                 (if dired-video-thumbnail--recursive " recursively" ""))
+      (dired-video-thumbnail--display-buffer-internal
+       videos
+       dired-video-thumbnail--source-dir
+       dired-video-thumbnail--dired-buffer
+       dired-video-thumbnail--sort-by
+       dired-video-thumbnail--sort-order
+       dired-video-thumbnail--filter-name
+       dired-video-thumbnail--filter-duration-min
+       dired-video-thumbnail--filter-duration-max
+       dired-video-thumbnail--filter-size-min
+       dired-video-thumbnail--filter-size-max
+       dired-video-thumbnail--recursive
+       dired-video-thumbnail--local-marks)
+      (when current-file
+        (dired-video-thumbnail--goto-file current-file))
+      (dired-video-thumbnail--generate-missing videos)
+      (message "Re-scanned %s: %d video%s"
+               (abbreviate-file-name dired-video-thumbnail--source-dir)
+               (length videos)
+               (if (= (length videos) 1) "" "s")))))
+
+(defun dired-video-thumbnail-hard-refresh ()
+  "Clear cached thumbnails for this gallery and regenerate them.
+The source directory is re-scanned, so files added or removed
+externally are picked up too.  Confirmation can be skipped with
+`dired-video-thumbnail-auto-accept'."
+  (interactive)
+  (unless (derived-mode-p 'dired-video-thumbnail-mode)
+    (user-error "Not in a video thumbnail buffer"))
+  (let ((videos (or dired-video-thumbnail--all-videos
+                    dired-video-thumbnail--current-videos)))
+    (when (or dired-video-thumbnail-auto-accept
+              (yes-or-no-p
+               (format "Hard refresh: clear %d cached thumbnail(s) and regenerate? "
+                       (length videos))))
+      (dolist (video videos)
+        (let ((cache-path (dired-video-thumbnail--cache-path video)))
+          (when (file-exists-p cache-path)
+            (delete-file cache-path)))
+        (remhash video dired-video-thumbnail--info-attempts))
+      (dired-video-thumbnail-re-scan)
+      (message "Thumbnail cache cleared and display refreshed"))))
+
 (defun dired-video-thumbnail--goto-file (file)
   "Move point to the thumbnail for FILE.
 Returns non-nil when a thumbnail for FILE was found."
@@ -1983,8 +2043,9 @@ Accepts formats like: 90, 1:30, 1:30:00"
     (princ "  /s           Filter by size\n")
     (princ "  /c           Clear filters\n\n")
     (princ "Other:\n")
-    (princ "  g            Regenerate thumbnail\n")
-    (princ "  G            Regenerate all\n")
+    (princ "  g            Re-scan directory and refresh\n")
+    (princ "  G            Hard refresh (clear cache, regenerate)\n")
+    (princ "  C-r          Regenerate thumbnail at point\n")
     (princ "  q            Quit window\n")
     (princ "  h, ?         This help\n")))
 
@@ -2041,8 +2102,9 @@ Accepts formats like: 90, 1:30, 1:30:00"
     (define-key map (kbd "RET") #'dired-video-thumbnail-play)
     (define-key map (kbd "SPC") #'dired-video-thumbnail-play)
     (define-key map (kbd "o") #'dired-video-thumbnail-play)
-    (define-key map (kbd "g") #'dired-video-thumbnail-regenerate)
-    (define-key map (kbd "G") #'dired-video-thumbnail-regenerate-all)
+    (define-key map (kbd "g") #'dired-video-thumbnail-re-scan)
+    (define-key map (kbd "G") #'dired-video-thumbnail-hard-refresh)
+    (define-key map (kbd "C-r") #'dired-video-thumbnail-regenerate)
     (define-key map (kbd "d") #'dired-video-thumbnail-goto-dired)
     (define-key map (kbd "D") #'dired-video-thumbnail-delete)
     (define-key map (kbd "C-d") #'dired-video-thumbnail-delete-and-next)

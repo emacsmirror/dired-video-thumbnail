@@ -128,15 +128,18 @@ n Next                RET Play video s Sort menu...       / Filter menu...
 p Previous            o Play video   S Interactive sort   \ Interactive filter
 C-n Next row                         r Reverse order      c Clear filters
 C-p Previous row
+C-l Recentre grid
 d Go to dired
 
-Marking               Delete         Display              Other
-m Mark menu...        D Delete       v Display menu...    g Regenerate thumbnail
-M Mark all            x Delete marked+ Larger thumbnails  G Regenerate all
-U Unmark all                         - Smaller thumbnails C Clear cache
-t Toggle all marks                   w Toggle wrap        ? Help
-                                     R Toggle recursive   q Quit menu
-                                                          Q Quit buffer
+Marking               Delete               Display              Other
+m Mark menu...        D Delete             V Display menu...    g Re-scan and refresh
+M Mark all            C-d Delete, next     + Larger thumbnails  G Hard refresh
+U Unmark all          x Delete marked      - Smaller thumbnails C-r Regenerate thumbnail
+t Toggle all marks                         w Toggle wrap        C Clear cache
+                                           R Toggle recursive   v Move to directory...
+                                                                ? Help
+                                                                q Quit menu
+                                                                Q Quit buffer
 #+end_example
 
 The status line at the top shows:
@@ -153,7 +156,7 @@ Several keys open submenus with additional options:
 - =s= - *Sort menu*: Sort by name, date, size, or duration; reverse order
 - =/= - *Filter menu*: Filter by name regexp, duration range, or size range; clear filters
 - =m= - *Mark menu*: Mark/unmark current, toggle current, mark/unmark/toggle all
-- =v= - *Display menu*: Adjust size, toggle wrap/recursive, refresh, regenerate thumbnails
+- =V= - *Display menu*: Adjust size, toggle wrap/recursive, refresh, re-scan, hard refresh and regenerate thumbnails
 
 * Header Line
 
@@ -244,15 +247,18 @@ The target directory is created if needed. Existing files at the destination are
 
 ** Display
 
-| Key | Command                                | Description                            |
-|-----+----------------------------------------+----------------------------------------|
-| =+= | ~dired-video-thumbnail-increase-size~  | Increase thumbnail size                |
-| =-= | ~dired-video-thumbnail-decrease-size~  | Decrease thumbnail size                |
-| =r= | ~dired-video-thumbnail-refresh~        | Refresh the display                    |
-| =w= | ~dired-video-thumbnail-toggle-wrap~    | Toggle wrap mode (flow vs fixed cols)  |
-| =R= | ~dired-video-thumbnail-toggle-recursive~ | Toggle recursive directory search    |
-| =g= | ~dired-video-thumbnail-regenerate~     | Regenerate thumbnail at point          |
-| =G= | ~dired-video-thumbnail-regenerate-all~ | Regenerate all thumbnails              |
+| Key   | Command                                | Description                            |
+|-------+----------------------------------------+----------------------------------------|
+| =+=   | ~dired-video-thumbnail-increase-size~  | Increase thumbnail size                |
+| =-=   | ~dired-video-thumbnail-decrease-size~  | Decrease thumbnail size                |
+| =r=   | ~dired-video-thumbnail-refresh~        | Refresh the display                    |
+| =g=   | ~dired-video-thumbnail-re-scan~        | Re-scan the directory from disk and refresh |
+| =G=   | ~dired-video-thumbnail-hard-refresh~   | Clear cached thumbnails, re-scan and regenerate |
+| =C-r= | ~dired-video-thumbnail-regenerate~     | Regenerate the thumbnail at point      |
+| =w=   | ~dired-video-thumbnail-toggle-wrap~    | Toggle wrap mode (flow vs fixed cols)  |
+| =R=   | ~dired-video-thumbnail-toggle-recursive~ | Toggle recursive directory search    |
+
+The =dired-video-thumbnail-regenerate-all= command is also available from the transient menu (=C-R=).
 
 ** Sorting
 
@@ -503,7 +509,7 @@ M-x dired-video-thumbnail-clear-cache
 
 1. Ensure ffmpeg is installed: =ffmpeg -version=
 2. Check that ffmpeg is in your PATH or set =dired-video-thumbnail-ffmpeg-program=
-3. Try regenerating with =g= on a specific thumbnail
+3. Try regenerating with =C-r= on a specific thumbnail
 
 ** Placeholder showing instead of thumbnail
 
@@ -512,7 +518,7 @@ Some videos may fail to generate thumbnails if:
 - The timestamp is beyond the video duration (try setting =dired-video-thumbnail-timestamp= to =nil=)
 - ffmpeg doesn't support the codec
 
-Press =g= on the thumbnail to retry generation.
+Press =C-r= on the thumbnail to retry generation.
 
 ** Video info not showing in header line
 
