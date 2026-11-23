@@ -359,6 +359,152 @@
       (should (string-match-p "10MB" result))
       (should (string-match-p "100MB" result)))))
 
+;;; Tests for marking helpers
+
+(ert-deftest dired-video-thumbnail-test-get-dired-marked-set ()
+  "Test that marked files are collected in one pass over dired."
+  (let* ((temp-dir (make-temp-file "video-mark-set-test" t))
+         (file1 (expand-file-name "a.mp4" temp-dir))
+         (file2 (expand-file-name "b.mp4" temp-dir))
+         (file3 (expand-file-name "c.mp4" temp-dir)))
+    (unwind-protect
+        (progn
+          (write-region "" nil file1)
+          (write-region "" nil file2)
+          (write-region "" nil file3)
+          (let ((dired-buf (dired-noselect temp-dir)))
+            (unwind-protect
+                (with-temp-buffer
+                  (setq dired-video-thumbnail--dired-buffer dired-buf)
+                  (setq dired-video-thumbnail--local-marks
+                        (make-hash-table :test 'equal))
+                  (setq dired-video-thumbnail--marked-set nil)
+                  (with-current-buffer dired-buf
+                    (dired-goto-file file1)
+                    (dired-mark 1)
+                    (dired-goto-file file3)
+                    (dired-mark 1))
+                  (let ((set (dired-video-thumbnail--get-dired-marked-set)))
+                    (should (gethash file1 set))
+                    (should-not (gethash file2 set))
+                    (should (gethash file3 set)))
+                  ;; Changing marks in dired invalidates the cached set
+                  ;; automatically through the modification tick.
+                  (with-current-buffer dired-buf
+                    (dired-goto-file file2)
+                    (dired-mark 1))
+                  (should (gethash file2
+                                   (dired-video-thumbnail--get-dired-marked-set)))
+                  ;; Explicit invalidation rebuilds as well.
+                  (dired-video-thumbnail--invalidate-marked-cache)
+                  (should (gethash file2
+                                   (dired-video-thumbnail--get-dired-marked-set))))
+              (when (buffer-live-p dired-buf)
+                (kill-buffer dired-buf)))))
+      (delete-directory temp-dir t))))
+
+(ert-deftest dired-video-thumbnail-test-marked-set-includes-local-marks ()
+  "Test that local marks for files outside dired are included in the set."
+  (with-temp-buffer
+    (setq dired-video-thumbnail--dired-buffer nil)
+    (setq dired-video-thumbnail--local-marks (make-hash-table :test 'equal))
+    (puthash "/tmp/outside.mp4" t dired-video-thumbnail--local-marks)
+    (setq dired-video-thumbnail--marked-set nil)
+    (let ((set (dired-video-thumbnail--get-dired-marked-set)))
+      (should (gethash "/tmp/outside.mp4" set))
+      (should (dired-video-thumbnail--file-marked-p "/tmp/outside.mp4"))
+      (should-not (dired-video-thumbnail--file-marked-p "/tmp/other.mp4")))))
+
+(ert-deftest dired-video-thumbnail-test-count-marked-caching ()
+  "Test that the marked count is cached until invalidated."
+  (with-temp-buffer
+    (setq dired-video-thumbnail--current-videos
+          '("/tmp/a.mp4" "/tmp/b.mp4" "/tmp/c.mp4"))
+    (setq dired-video-thumbnail--local-marks (make-hash-table :test 'equal))
+    (setq dired-video-thumbnail--marked-set (make-hash-table :test 'equal))
+    (setq dired-video-thumbnail--marked-count nil)
+    (puthash "/tmp/a.mp4" t dired-video-thumbnail--marked-set)
+    (puthash "/tmp/c.mp4" t dired-video-thumbnail--marked-set)
+    (should (= (dired-video-thumbnail--count-marked) 2))
+    ;; Direct mutation of the set is ignored while the count is cached.
+    (puthash "/tmp/b.mp4" t dired-video-thumbnail--marked-set)
+    (should (= (dired-video-thumbnail--count-marked) 2))
+    ;; Invalidating makes the next call recompute from the set.
+    (dired-video-thumbnail--invalidate-marked-cache)
+    (setq dired-video-thumbnail--marked-set (make-hash-table :test 'equal))
+    (puthash "/tmp/a.mp4" t dired-video-thumbnail--marked-set)
+    (puthash "/tmp/b.mp4" t dired-video-thumbnail--marked-set)
+    (puthash "/tmp/c.mp4" t dired-video-thumbnail--marked-set)
+    (should (= (dired-video-thumbnail--count-marked) 3))))
+
+(ert-deftest dired-video-thumbnail-test-mark-targets ()
+  "Test single-pass marking of videos, including local fallback marks."
+  (let* ((temp-dir (make-temp-file "video-mark-targets-test" t))
+         (subdir (expand-file-name "sub" temp-dir))
+         (file1 (expand-file-name "a.mp4" temp-dir))
+         (file2 (expand-file-name "b.mp4" temp-dir))
+         (file3 (expand-file-name "c.mp4" temp-dir))
+         (outside (expand-file-name "d.mp4" subdir)))
+    (unwind-protect
+        (progn
+          (make-directory subdir)
+          (write-region "" nil file1)
+          (write-region "" nil file2)
+          (write-region "" nil file3)
+          (write-region "" nil outside)
+          (let ((dired-buf (dired-noselect temp-dir)))
+            (unwind-protect
+                (with-temp-buffer
+                  (setq dired-video-thumbnail--dired-buffer dired-buf)
+                  (setq dired-video-thumbnail--local-marks
+                        (make-hash-table :test 'equal))
+                  (setq dired-video-thumbnail--marked-set nil)
+                  (setq dired-video-thumbnail--marked-count nil)
+                  (let ((targets (make-hash-table :test 'equal)))
+                    (puthash file1 t targets)
+                    (puthash file2 t targets)
+                    (puthash outside t targets)
+                    (dired-video-thumbnail--mark-targets targets ?*)
+                    (with-current-buffer dired-buf
+                      (save-excursion
+                        (dired-goto-file file1)
+                        (beginning-of-line)
+                        (should (looking-at-p dired-re-mark))
+                        (dired-goto-file file2)
+                        (beginning-of-line)
+                        (should (looking-at-p dired-re-mark))
+                        (dired-goto-file file3)
+                        (beginning-of-line)
+                        (should-not (looking-at-p dired-re-mark))))
+                    ;; The subdirectory file is marked locally.
+                    (should (gethash outside dired-video-thumbnail--local-marks))
+                    (should (dired-video-thumbnail--file-marked-p outside))
+                    (should (dired-video-thumbnail--file-marked-p file1))
+                    (should-not (dired-video-thumbnail--file-marked-p file3))
+                    ;; Unmarking in one pass clears dired and local marks.
+                    (dired-video-thumbnail--mark-targets targets ?\s)
+                    (should-not (dired-video-thumbnail--file-marked-p outside))
+                    (should-not (dired-video-thumbnail--file-marked-p file1))))
+              (when (buffer-live-p dired-buf)
+                (kill-buffer dired-buf)))))
+      (delete-directory temp-dir t))))
+
+(ert-deftest dired-video-thumbnail-test-position-of-file ()
+  "Test locating a thumbnail by file name."
+  (with-temp-buffer
+    (insert " ")
+    (let ((pos1 (1+ (point-min))))
+      (insert "thumb1")
+      (put-text-property pos1 (point) 'dired-video-thumbnail-file "/tmp/a.mp4")
+      (put-text-property pos1 (point) 'dired-video-thumbnail-thumb-state "/tmp/a.jpg")
+      (insert " ")
+      (let ((pos2 (1+ (point))))
+        (insert "thumb2")
+        (put-text-property pos2 (point) 'dired-video-thumbnail-file "/tmp/b.mp4")
+        (should (= (dired-video-thumbnail--position-of-file "/tmp/a.mp4") pos1))
+        (should (= (dired-video-thumbnail--position-of-file "/tmp/b.mp4") pos2))
+        (should-not (dired-video-thumbnail--position-of-file "/tmp/c.mp4"))))))
+
 ;;; Run all tests
 
 (provide 'dired-video-thumbnail-test)

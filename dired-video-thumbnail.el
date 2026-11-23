@@ -220,6 +220,27 @@ This is useful for video collections organised in year/category folders."
 (defvar-local dired-video-thumbnail--local-marks nil
   "Hash table of locally marked files (for files not in dired buffer).")
 
+(defvar-local dired-video-thumbnail--marked-set nil
+  "Hash set of marked files in the associated Dired buffer.
+Nil means the set needs recomputation.  It is built in a single pass
+over the Dired buffer by `dired-video-thumbnail--get-dired-marked-set',
+which also merges `dired-video-thumbnail--local-marks' for files that
+are not visible there.")
+
+(defvar-local dired-video-thumbnail--marked-set-tick nil
+  "Dired buffer modification tick the marked set was built from.
+When the dired buffer changes (for example when marks are set there
+directly), the tick no longer matches and the set is rebuilt, so the
+cached set never goes stale.")
+
+(defvar-local dired-video-thumbnail--marked-count nil
+  "Cached count of marked videos.
+Nil means it needs recomputation; see
+`dired-video-thumbnail--invalidate-marked-cache'.")
+
+(defvar-local dired-video-thumbnail--marked-count-tick nil
+  "Dired buffer modification tick the marked count was computed from.")
+
 ;;; Utility functions
 
 (defun dired-video-thumbnail--ensure-cache-dir ()
@@ -248,22 +269,54 @@ If RECURSIVE is non-nil, search subdirectories as well."
     (seq-filter #'dired-video-thumbnail--video-p
                 (directory-files directory t nil t))))
 
+(defun dired-video-thumbnail--get-dired-marked-set ()
+  "Return a hash set of all marked files in the associated dired buffer.
+The set is built in a single pass over the dired buffer and merged
+with the buffer-local marks recorded for files that are not visible
+there (for example videos in subdirectories).  The result is cached in
+`dired-video-thumbnail--marked-set' and validated against the dired
+buffer's modification tick, so marking and header-line updates never
+rescan the dired buffer once per file, and marks changed directly in
+dired are still picked up."
+  (let ((tick (and (buffer-live-p dired-video-thumbnail--dired-buffer)
+                   (with-current-buffer dired-video-thumbnail--dired-buffer
+                     (buffer-chars-modified-tick)))))
+    (if (and dired-video-thumbnail--marked-set
+             (equal tick dired-video-thumbnail--marked-set-tick))
+        dired-video-thumbnail--marked-set
+      (let ((marked (make-hash-table :test 'equal)))
+        (when (buffer-live-p dired-video-thumbnail--dired-buffer)
+          (with-current-buffer dired-video-thumbnail--dired-buffer
+            (save-excursion
+              (goto-char (point-min))
+              (while (not (eobp))
+                (when (looking-at-p dired-re-mark)
+                  (let ((file (dired-get-filename nil t)))
+                    (when file
+                      (puthash file t marked))))
+                (forward-line 1)))))
+        (when dired-video-thumbnail--local-marks
+          (maphash (lambda (file _) (puthash file t marked))
+                   dired-video-thumbnail--local-marks))
+        (setq dired-video-thumbnail--marked-set marked
+              dired-video-thumbnail--marked-set-tick tick)
+        marked))))
+
 (defun dired-video-thumbnail--file-marked-p (file)
   "Return non-nil if FILE is marked.
-Checks both the associated dired buffer and local marks (for recursive mode)."
-  (or
-   ;; First check local marks (for files in subdirectories)
-   (and dired-video-thumbnail--local-marks
-        (gethash file dired-video-thumbnail--local-marks))
-   ;; Then check dired buffer
-   (when (and dired-video-thumbnail--dired-buffer
-              (buffer-live-p dired-video-thumbnail--dired-buffer))
-     (with-current-buffer dired-video-thumbnail--dired-buffer
-       (save-excursion
-         (goto-char (point-min))
-         (when (dired-goto-file file)
-           (beginning-of-line)
-           (looking-at-p dired-re-mark)))))))
+Consults the cached marked set, which is built in one pass over the
+associated dired buffer and includes local marks for files outside it."
+  (and (gethash file (dired-video-thumbnail--get-dired-marked-set)) t))
+
+(defun dired-video-thumbnail--invalidate-marked-cache ()
+  "Invalidate the cached marked set and marked count.
+The next `dired-video-thumbnail--file-marked-p' call rebuilds the set
+in one pass, and the header line is refreshed immediately."
+  (setq dired-video-thumbnail--marked-set nil)
+  (setq dired-video-thumbnail--marked-set-tick nil)
+  (setq dired-video-thumbnail--marked-count nil)
+  (setq dired-video-thumbnail--marked-count-tick nil)
+  (force-mode-line-update))
 
 (defun dired-video-thumbnail--file-in-dired-p (file)
   "Return non-nil if FILE is visible in the associated dired buffer."
@@ -299,40 +352,63 @@ Returns non-nil if the file can now be found in dired."
                  (message "Could not insert subdir %s: %s" file-dir err)
                  nil)))))))))
 
+(defun dired-video-thumbnail--set-local-mark (file mark)
+  "Record MARK for FILE in the local fallback mark table.
+MARK should be ?* to mark or ?\\s (space) to unmark.  Used for files
+that are not visible in the associated dired buffer."
+  (unless dired-video-thumbnail--local-marks
+    (setq dired-video-thumbnail--local-marks (make-hash-table :test 'equal)))
+  (if (eq mark ?*)
+      (puthash file t dired-video-thumbnail--local-marks)
+    (remhash file dired-video-thumbnail--local-marks)))
+
 (defun dired-video-thumbnail--mark-in-dired (file mark)
   "Set MARK on FILE in the associated dired buffer or local marks.
 MARK should be ?* to mark or ?\\s (space) to unmark.
-For files in subdirectories, inserts the subdirectory into dired first."
+For files in subdirectories, inserts the subdirectory into dired first.
+The cached marked set and count are updated incrementally, so the
+header line and later checks stay accurate without rescanning dired."
   ;; Capture buffer-local variables before switching buffers
   (let ((dired-buf dired-video-thumbnail--dired-buffer)
-        (source-dir dired-video-thumbnail--source-dir))
+        (source-dir dired-video-thumbnail--source-dir)
+        (found-in-dired nil))
     (if (not (and dired-buf (buffer-live-p dired-buf)))
-        (message "No live dired buffer associated!")
-      ;; Try to mark in dired
-      (let ((found-in-dired nil))
-        (with-current-buffer dired-buf
-          ;; First check if file exists in dired
-          (save-excursion
-            (goto-char (point-min))
-            (unless (dired-goto-file file)
-              ;; File not found, try inserting its subdirectory
-              (dired-video-thumbnail--ensure-subdir-in-dired file dired-buf source-dir)))
-          ;; Now try to mark
-          (save-excursion
-            (goto-char (point-min))
-            (when (dired-goto-file file)
-              (setq found-in-dired t)
-              (let ((inhibit-read-only t))
-                (beginning-of-line)
-                (delete-char 1)
-                (insert-char mark)))))
-        ;; If still not in dired, use local marks as fallback
-        (unless found-in-dired
-          (unless dired-video-thumbnail--local-marks
-            (setq dired-video-thumbnail--local-marks (make-hash-table :test 'equal)))
-          (if (eq mark ?*)
-              (puthash file t dired-video-thumbnail--local-marks)
-            (remhash file dired-video-thumbnail--local-marks)))))))
+        ;; No dired buffer: keep the mark locally so it is not lost.
+        (dired-video-thumbnail--set-local-mark file mark)
+      (with-current-buffer dired-buf
+        ;; First check if file exists in dired
+        (save-excursion
+          (goto-char (point-min))
+          (unless (dired-goto-file file)
+            ;; File not found, try inserting its subdirectory
+            (dired-video-thumbnail--ensure-subdir-in-dired file dired-buf source-dir)))
+        ;; Now try to mark
+        (save-excursion
+          (goto-char (point-min))
+          (when (dired-goto-file file)
+            (setq found-in-dired t)
+            (let ((inhibit-read-only t))
+              (beginning-of-line)
+              (delete-char 1)
+              (insert-char mark)))))
+      ;; If still not in dired, use local marks as fallback
+      (unless found-in-dired
+        (dired-video-thumbnail--set-local-mark file mark))
+      ;; Dired is authoritative now; drop any stale fallback mark.
+      (when (and found-in-dired dired-video-thumbnail--local-marks)
+        (remhash file dired-video-thumbnail--local-marks)))
+    ;; Keep the cached marked set in sync when it has been built, and
+    ;; record the tick produced by our own dired modification so the
+    ;; next lookup trusts the incrementally updated set.
+    (when dired-video-thumbnail--marked-set
+      (if (eq mark ?*)
+          (puthash file t dired-video-thumbnail--marked-set)
+        (remhash file dired-video-thumbnail--marked-set))
+      (setq dired-video-thumbnail--marked-set-tick
+            (and (buffer-live-p dired-buf)
+                 (with-current-buffer dired-buf
+                   (buffer-chars-modified-tick)))))
+    (setq dired-video-thumbnail--marked-count nil)))
 
 (defun dired-video-thumbnail-debug ()
   "Show debug info about current state."
@@ -720,13 +796,32 @@ MARKED if non-nil shows the thumbnail as marked with a border."
          (start (point)))
     (insert-image image)
     (put-text-property start (point) 'dired-video-thumbnail-file video-file)
+    ;; Record what the thumbnail currently shows (a thumbnail file,
+    ;; `:error', or nil for a placeholder), so it can be redrawn in
+    ;; place when only the mark border changes.
+    (put-text-property start (point) 'dired-video-thumbnail-thumb-state thumb-path)
     (put-text-property start (point) 'keymap dired-video-thumbnail-item-map)
     (put-text-property start (point) 'help-echo (format "%s%s\nClick to play, m to mark"
                                                         (if marked "[MARKED] " "")
                                                         rel-name))))
 
+(defun dired-video-thumbnail--position-of-file (file)
+  "Return the buffer position of the thumbnail for FILE, or nil.
+Jumps between property-change boundaries (O(runs)) rather than
+scanning one character at a time."
+  (let ((pos (point-min))
+        (found nil))
+    (while (and (not found) pos (< pos (point-max)))
+      (when (equal (get-text-property pos 'dired-video-thumbnail-file) file)
+        (setq found pos))
+      (setq pos (next-single-property-change
+                 pos 'dired-video-thumbnail-file nil (point-max))))
+    found))
+
 (defun dired-video-thumbnail--update-thumbnail (video-file thumb-path)
-  "Update the display for VIDEO-FILE with THUMB-PATH."
+  "Update the display for VIDEO-FILE with THUMB-PATH.
+The thumbnail's mark border is preserved, so a thumbnail that finishes
+generating in the background does not lose its marked appearance."
   (when-let ((buf (get-buffer "*Video Thumbnails*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -742,10 +837,51 @@ MARKED if non-nil shows the thumbnail as marked with a border."
                   (delete-region start end)
                   (dired-video-thumbnail--insert-thumbnail
                    video-file
-                   (or thumb-path :error)))))
+                   (or thumb-path :error)
+                   (dired-video-thumbnail--file-marked-p video-file)))))
             (goto-char (or (next-single-property-change (point)
                                                         'dired-video-thumbnail-file)
                            (point-max)))))))))
+
+(defun dired-video-thumbnail--refresh-thumbnail (video-file)
+  "Redraw the thumbnail for VIDEO-FILE in place.
+The thumbnail's stored state (real thumbnail, placeholder or error) is
+reused and the mark border is brought up to date, so only the image
+for that file is rebuilt instead of the whole buffer.  Does nothing
+when VIDEO-FILE has no thumbnail in the current buffer."
+  (when-let ((pos (dired-video-thumbnail--position-of-file video-file)))
+    (let ((inhibit-read-only t))
+      (save-excursion
+        (goto-char pos)
+        (let* ((start (point))
+               (end (next-single-property-change
+                     start 'dired-video-thumbnail-file nil (point-max)))
+               (state (get-text-property start 'dired-video-thumbnail-thumb-state))
+               (marked (dired-video-thumbnail--file-marked-p video-file)))
+          (delete-region start end)
+          (dired-video-thumbnail--insert-thumbnail video-file state marked))))))
+
+(defun dired-video-thumbnail--refresh-all-marks ()
+  "Redraw the mark border of every thumbnail in the current buffer.
+The buffer is scanned once, so this is O(n) in the number of
+thumbnails and avoids erasing, re-sorting and re-scanning the whole
+display after a bulk mark change."
+  (let ((inhibit-read-only t))
+    (save-excursion
+      (goto-char (point-min))
+      (while (not (eobp))
+        (let ((file (get-text-property (point) 'dired-video-thumbnail-file)))
+          (if (not file)
+              (goto-char (or (next-single-property-change
+                              (point) 'dired-video-thumbnail-file)
+                             (point-max)))
+            (let* ((start (point))
+                   (end (next-single-property-change
+                         start 'dired-video-thumbnail-file nil (point-max)))
+                   (state (get-text-property start 'dired-video-thumbnail-thumb-state))
+                   (marked (dired-video-thumbnail--file-marked-p file)))
+              (delete-region start end)
+              (dired-video-thumbnail--insert-thumbnail file state marked))))))))
 
 (defun dired-video-thumbnail--display-buffer (videos source-dir dired-buf &optional recursive)
   "Display VIDEOS in a thumbnail buffer.
@@ -779,6 +915,10 @@ LOCAL-MARKS is a hash table of locally marked files (for subdirectory files)."
         ;; Restore local marks
         (setq dired-video-thumbnail--local-marks
               (or local-marks (make-hash-table :test 'equal)))
+        ;; Marks are about to be read for every thumbnail; start from a
+        ;; clean cache so a single pass over dired serves the whole build.
+        (setq dired-video-thumbnail--marked-set nil)
+        (setq dired-video-thumbnail--marked-count nil)
         ;; Store all videos before filtering/sorting
         (setq dired-video-thumbnail--all-videos videos)
         ;; Store recursive state
@@ -1069,15 +1209,12 @@ is automatically enabled."
         (dired-video-thumbnail--goto-file current-file)))))
 
 (defun dired-video-thumbnail--goto-file (file)
-  "Move point to the thumbnail for FILE."
-  (goto-char (point-min))
-  (let ((found nil))
-    (while (and (not found) (not (eobp)))
-      (if (equal file (get-text-property (point) 'dired-video-thumbnail-file))
-          (setq found t)
-        (goto-char (or (next-single-property-change (point) 'dired-video-thumbnail-file)
-                       (point-max)))))
-    found))
+  "Move point to the thumbnail for FILE.
+Returns non-nil when a thumbnail for FILE was found."
+  (let ((pos (dired-video-thumbnail--position-of-file file)))
+    (when pos
+      (goto-char pos))
+    (and pos t)))
 
 (defun dired-video-thumbnail-clear-cache ()
   "Clear all cached thumbnails."
@@ -1129,39 +1266,93 @@ is automatically enabled."
 ;;; Marking commands
 
 (defun dired-video-thumbnail--count-marked ()
-  "Count marked files in the associated Dired buffer."
-  (let ((count 0))
+  "Count marked videos among the current videos.
+The result is cached in `dired-video-thumbnail--marked-count' and
+validated against the dired buffer's modification tick, so the header
+line can be updated on every navigation without rescanning the dired
+buffer, while marks changed directly in dired are still counted."
+  (let ((tick (and (buffer-live-p dired-video-thumbnail--dired-buffer)
+                   (with-current-buffer dired-video-thumbnail--dired-buffer
+                     (buffer-chars-modified-tick)))))
+    (if (and dired-video-thumbnail--marked-count
+             (equal tick dired-video-thumbnail--marked-count-tick))
+        dired-video-thumbnail--marked-count
+      (let ((marked-set (dired-video-thumbnail--get-dired-marked-set))
+            (count 0))
+        (dolist (video dired-video-thumbnail--current-videos)
+          (when (gethash video marked-set)
+            (setq count (1+ count))))
+        (setq dired-video-thumbnail--marked-count count
+              dired-video-thumbnail--marked-count-tick tick)
+        count))))
+
+(defun dired-video-thumbnail--current-videos-set ()
+  "Return a hash set of expanded names of all current (visible) videos."
+  (let ((set (make-hash-table :test 'equal)))
     (dolist (video dired-video-thumbnail--current-videos)
-      (when (dired-video-thumbnail--file-marked-p video)
-        (setq count (1+ count))))
-    count))
+      (puthash (expand-file-name video) t set))
+    set))
+
+(defun dired-video-thumbnail--mark-targets (targets mark)
+  "Set MARK on every file in TARGETS, in one pass over the dired buffer.
+TARGETS is a hash set of expanded file names.  MARK is ?* to mark or
+?\\s (space) to unmark.  Files that cannot be found in the dired buffer
+\(for example videos in subdirectories that could not be inserted) are
+recorded as local marks instead.  The marked cache is invalidated
+afterwards, so the next check rebuilds it in one pass."
+  (let ((seen (make-hash-table :test 'equal)))
+    (when (and dired-video-thumbnail--dired-buffer
+               (buffer-live-p dired-video-thumbnail--dired-buffer))
+      (with-current-buffer dired-video-thumbnail--dired-buffer
+        (save-excursion
+          (goto-char (point-min))
+          (while (not (eobp))
+            (let ((file (dired-get-filename nil t)))
+              (if (and file (gethash (expand-file-name file) targets))
+                  (progn
+                    (puthash (expand-file-name file) t seen)
+                    (if (eq mark ?*)
+                        (dired-mark 1)
+                      (dired-unmark 1)))
+                (forward-line 1)))))))
+    (maphash (lambda (file _)
+               (if (gethash file seen)
+                   ;; Dired is authoritative; drop stale fallback marks.
+                   (when dired-video-thumbnail--local-marks
+                     (remhash file dired-video-thumbnail--local-marks))
+                 (dired-video-thumbnail--set-local-mark file mark)))
+             targets)
+    (dired-video-thumbnail--invalidate-marked-cache)))
 
 (defun dired-video-thumbnail-mark ()
-  "Mark the video at point in both thumbnail and Dired buffers."
+  "Mark the video at point and advance to the next one.
+Only the marked thumbnail is redrawn, so marking many videos in
+sequence stays fast even in large directories."
   (interactive)
   (if-let ((video (get-text-property (point) 'dired-video-thumbnail-file)))
-      (let ((count nil))
+      (progn
         (dired-video-thumbnail--mark-in-dired video ?*)
-        (dired-video-thumbnail-refresh)
-        (setq count (dired-video-thumbnail--count-marked))
+        (dired-video-thumbnail--refresh-thumbnail video)
         (dired-video-thumbnail-next)
+        (force-mode-line-update)
         (message "Marked: %s (%d total)"
                  (file-name-nondirectory video)
-                 count))
+                 (dired-video-thumbnail--count-marked)))
     (user-error "No video at point")))
 
 (defun dired-video-thumbnail-unmark ()
-  "Unmark the video at point in both thumbnail and Dired buffers."
+  "Unmark the video at point and advance to the next one.
+Only the affected thumbnail is redrawn."
   (interactive)
   (if-let ((video (get-text-property (point) 'dired-video-thumbnail-file)))
-      (let ((count nil))
+      (progn
         (dired-video-thumbnail--mark-in-dired video ?\s)
-        (dired-video-thumbnail-refresh)
-        (setq count (dired-video-thumbnail--count-marked))
+        (dired-video-thumbnail--refresh-thumbnail video)
         (dired-video-thumbnail-next)
+        (force-mode-line-update)
         (message "Unmarked: %s (%d marked)"
                  (file-name-nondirectory video)
-                 count))
+                 (dired-video-thumbnail--count-marked)))
     (user-error "No video at point")))
 
 (defun dired-video-thumbnail-toggle-mark ()
@@ -1176,31 +1367,45 @@ is automatically enabled."
 (defun dired-video-thumbnail-unmark-all ()
   "Unmark all videos in both thumbnail and Dired buffers."
   (interactive)
-  (dolist (video dired-video-thumbnail--current-videos)
-    (dired-video-thumbnail--mark-in-dired video ? ))
-  ;; Clear local marks
+  (dired-video-thumbnail--mark-targets
+   (dired-video-thumbnail--current-videos-set) ?\s)
+  ;; Clear local marks left over from files no longer visible.
   (when dired-video-thumbnail--local-marks
     (clrhash dired-video-thumbnail--local-marks))
-  (dired-video-thumbnail-refresh)
+  (dired-video-thumbnail--refresh-all-marks)
+  (force-mode-line-update)
   (message "All marks removed"))
 
 (defun dired-video-thumbnail-mark-all ()
   "Mark all videos in both thumbnail and Dired buffers."
   (interactive)
-  (dolist (video dired-video-thumbnail--current-videos)
-    (dired-video-thumbnail--mark-in-dired video ?*))
-  (dired-video-thumbnail-refresh)
+  (dired-video-thumbnail--mark-targets
+   (dired-video-thumbnail--current-videos-set) ?*)
+  (dired-video-thumbnail--refresh-all-marks)
+  (force-mode-line-update)
   (message "Marked all %d videos" (length dired-video-thumbnail--current-videos)))
 
 (defun dired-video-thumbnail-toggle-all-marks ()
-  "Toggle mark on all videos."
+  "Toggle mark on all videos.
+The dired buffer is scanned once to split the videos by current state,
+then the marks are applied in one pass each way."
   (interactive)
-  (dolist (video dired-video-thumbnail--current-videos)
-    (if (dired-video-thumbnail--file-marked-p video)
-        (dired-video-thumbnail--mark-in-dired video ? )
-      (dired-video-thumbnail--mark-in-dired video ?*)))
-  (dired-video-thumbnail-refresh)
-  (message "%d videos now marked" (dired-video-thumbnail--count-marked)))
+  (let ((targets (dired-video-thumbnail--current-videos-set))
+        (to-unmark (make-hash-table :test 'equal))
+        (to-mark (make-hash-table :test 'equal))
+        (marked-set (dired-video-thumbnail--get-dired-marked-set)))
+    (maphash (lambda (file _)
+               (if (gethash file marked-set)
+                   (puthash file t to-unmark)
+                 (puthash file t to-mark)))
+             targets)
+    (when (> (hash-table-count to-unmark) 0)
+      (dired-video-thumbnail--mark-targets to-unmark ?\s))
+    (when (> (hash-table-count to-mark) 0)
+      (dired-video-thumbnail--mark-targets to-mark ?*))
+    (dired-video-thumbnail--refresh-all-marks)
+    (force-mode-line-update)
+    (message "%d videos now marked" (dired-video-thumbnail--count-marked))))
 
 (defun dired-video-thumbnail-goto-dired ()
   "Switch to the associated Dired buffer."

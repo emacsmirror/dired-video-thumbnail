@@ -206,7 +206,7 @@ On Linux, videos open with =xdg-open=. On macOS, they open with =open=. On Windo
 
 ** Marking
 
-Marks are synchronised with the associated dired buffer, so marking a video in the thumbnail view also marks it in dired, and vice versa.
+Marks are synchronised with the associated dired buffer, so marking a video in the thumbnail view also marks it in dired, and vice versa. Mark changes are applied in place: only the affected thumbnail is redrawn and the set of marked files is collected in a single pass over dired, so marking many videos in sequence stays fast even in large directories.
 
 | Key       | Command                                  | Description                   |
 |-----------+------------------------------------------+-------------------------------|

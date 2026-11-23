@@ -11,6 +11,12 @@ project's main git repository: [[https://github.com/captainflasmr/dired-video-th
 
 * Versions
 
+** Unreleased
+
+Faster, single-pass marking
+
+Marking now builds the set of marked files in a single pass over the Dired buffer and caches the marked count, instead of rescanning Dired once per thumbnail. Marking or unmarking a video repaints only that thumbnail rather than rebuilding the whole grid, and mark-all/toggle-all operate in one pass over Dired. Thumbnails that finish generating in the background keep their marked border.
+
 ** <2025-12-15 Mon> 0.3.0
 
 Added transient menu interface
