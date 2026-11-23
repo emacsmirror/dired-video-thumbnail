@@ -13,6 +13,10 @@ project's main git repository: [[https://github.com/captainflasmr/dired-video-th
 
 ** Unreleased
 
+Enhanced header line
+
+The header line now shows the visible/total video counts, the marked count, the directory, the current file's name, human-readable size, resolution and duration, plus the current sort order and active filters. The two plain-text status lines that used to sit above the thumbnails are gone, so the buffer contains only thumbnails. File sizes are formatted with `file-size-human-readable`, and size filters use the same format.
+
 Faster, single-pass marking
 
 Marking now builds the set of marked files in a single pass over the Dired buffer and caches the marked count, instead of rescanning Dired once per thumbnail. Marking or unmarking a video repaints only that thumbnail rather than rebuilding the whole grid, and mark-all/toggle-all operate in one pass over Dired. Thumbnails that finish generating in the background keep their marked border.

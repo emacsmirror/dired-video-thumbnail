@@ -167,6 +167,19 @@ This is useful for video collections organised in year/category folders."
   "Face for the border around marked video thumbnails."
   :group 'dired-video-thumbnail)
 
+(defface dired-video-thumbnail-header-info
+  '((((class color) (background light)) (:foreground "black"))
+    (((class color) (background dark)) (:foreground "white"))
+    (t nil))
+  "Face used for the whole thumbnail header line.
+Uses a maximum-contrast foreground colour -- black on light
+backgrounds, white on dark ones -- so the information stays
+clearly readable on most themes, independently of how the theme
+styles the image-dired header faces.  Unspecified attributes
+inherit from the `header-line' face.  Customize this face to
+adjust the colours."
+  :group 'dired-video-thumbnail)
+
 ;;; Internal variables
 
 (defvar dired-video-thumbnail--processes nil
@@ -477,32 +490,11 @@ Results are cached."
         (format "%d:%02d" mins secs)))))
 
 (defun dired-video-thumbnail--format-file-size (file)
-  "Return file size in MB for FILE."
-  (let* ((expanded (expand-file-name file))
-         (size (cond
-                ;; Linux/macOS: use stat
-                ((executable-find "stat")
-                 (let ((size-str (string-trim
-                                  (shell-command-to-string
-                                   (if (eq system-type 'darwin)
-                                       ;; macOS stat syntax
-                                       (format "stat -f %%z %s" (shell-quote-argument expanded))
-                                     ;; Linux stat syntax
-                                     (format "stat -c %%s %s" (shell-quote-argument expanded)))))))
-                   (string-to-number size-str)))
-                ;; Windows: use PowerShell
-                ((eq system-type 'windows-nt)
-                 (let ((size-str (string-trim
-                                  (shell-command-to-string
-                                   (format "powershell -command \"(Get-Item '%s').Length\""
-                                           (replace-regexp-in-string "'" "''" expanded))))))
-                   (string-to-number size-str)))
-                ;; Fallback: try file-attributes
-                (t
-                 (file-attribute-size (file-attributes expanded))))))
-    (if (and size (numberp size) (> size 0))
-        (format "%.1f MB" (/ (float size) (* 1024.0 1024.0)))
-      "? MB")))
+  "Return a human-readable file size for FILE."
+  (let ((attrs (file-attributes file)))
+    (if attrs
+        (file-size-human-readable (file-attribute-size attrs))
+      "?")))
 
 (defun dired-video-thumbnail--relative-name (file)
   "Return FILE name relative to the source directory."
@@ -511,53 +503,88 @@ Results are cached."
       (file-relative-name file dired-video-thumbnail--source-dir)
     (file-name-nondirectory file)))
 
+(defun dired-video-thumbnail--format-directory (file)
+  "Return an abbreviated directory location for the header line.
+Uses the directory containing FILE when known, otherwise falls back
+to the buffer's source directory.  Returns an empty string when
+neither is available."
+  (abbreviate-file-name
+   (or (and file (not (string-empty-p file))
+            (file-name-directory (expand-file-name file)))
+       dired-video-thumbnail--source-dir
+       "")))
+
 (defun dired-video-thumbnail--header-line ()
-  "Generate header line showing info for video at point."
+  "Generate the header line for the video at point.
+Shows the visible/total video counts, the marked count, the directory
+and relative file name, file size, resolution, duration, and the
+current sort and filter status, so all gallery state is visible
+without taking space away from the thumbnails."
   (if-let ((video (get-text-property (point) 'dired-video-thumbnail-file)))
-      (let* ((rel-name (dired-video-thumbnail--relative-name video))
+      (let* ((sort-by (or dired-video-thumbnail--sort-by
+                          dired-video-thumbnail-sort-by))
+             (sort-order (or dired-video-thumbnail--sort-order
+                             dired-video-thumbnail-sort-order))
+             (sort-info (format "[%s %s]"
+                                sort-by
+                                (if (eq sort-order 'ascending) "<" ">")))
+             (filter-info (dired-video-thumbnail--format-active-filters))
+             (filtered (not (string-empty-p filter-info)))
+             (shown-count (length dired-video-thumbnail--current-videos))
+             (total-count (length dired-video-thumbnail--all-videos))
+             (count-info (if filtered
+                             (format "[%d/%d videos]" shown-count total-count)
+                           (format "[%d video%s]" shown-count
+                                   (if (= shown-count 1) "" "s"))))
+             (marked-count (dired-video-thumbnail--count-marked))
+             (recursive-info (if dired-video-thumbnail--recursive
+                                 " [recursive]"
+                               ""))
+             (rel-name (dired-video-thumbnail--relative-name video))
+             (dir (concat (dired-video-thumbnail--format-directory video)
+                          recursive-info))
+             (size (dired-video-thumbnail--format-file-size video))
              (info (dired-video-thumbnail--get-video-info video))
              (width (plist-get info :width))
              (height (plist-get info :height))
              (duration (plist-get info :duration))
-             (size (dired-video-thumbnail--format-file-size video))
-             (marked (dired-video-thumbnail--file-marked-p video)))
+             (dimensions (if (and width height)
+                             (format "%dx%d" width height)
+                           "?")))
         (concat
-         (if marked
-             (propertize "* " 'face 'dired-video-thumbnail-mark)
-           "  ")
-         (propertize rel-name 'face 'bold)
-         "  "
-         (if (and width height)
-             (format "%dx%d" width height)
+         " "
+         (propertize count-info 'face 'dired-video-thumbnail-header-info)
+         " "
+         (if (> marked-count 0)
+             (propertize (format "[%d marked] " marked-count)
+                         'face 'dired-video-thumbnail-header-info)
            "")
+         (propertize dir 'face 'dired-video-thumbnail-header-info)
+         " "
+         (propertize rel-name 'face 'dired-video-thumbnail-header-info)
+         " "
+         (propertize size 'face 'dired-video-thumbnail-header-info)
+         " "
+         (propertize dimensions 'face 'dired-video-thumbnail-header-info)
          (if duration
-             (format "  %s" (dired-video-thumbnail--format-duration duration))
+             (concat " "
+                     (propertize (dired-video-thumbnail--format-duration duration)
+                                 'face 'dired-video-thumbnail-header-info))
            "")
-         (format "  %s" size)))
+         " "
+         (propertize sort-info 'face 'dired-video-thumbnail-header-info)
+         (if filtered
+             (concat " "
+                     (propertize filter-info
+                                 'face 'dired-video-thumbnail-header-info))
+           "")))
     ""))
 
 ;;; Sorting and Filtering
 
 (defun dired-video-thumbnail--get-file-size-bytes (file)
   "Return file size in bytes for FILE."
-  (let* ((expanded (expand-file-name file))
-         (size (cond
-                ((executable-find "stat")
-                 (let ((size-str (string-trim
-                                  (shell-command-to-string
-                                   (if (eq system-type 'darwin)
-                                       (format "stat -f %%z %s" (shell-quote-argument expanded))
-                                     (format "stat -c %%s %s" (shell-quote-argument expanded)))))))
-                   (string-to-number size-str)))
-                ((eq system-type 'windows-nt)
-                 (let ((size-str (string-trim
-                                  (shell-command-to-string
-                                   (format "powershell -command \"(Get-Item '%s').Length\""
-                                           (replace-regexp-in-string "'" "''" expanded))))))
-                   (string-to-number size-str)))
-                (t
-                 (file-attribute-size (file-attributes expanded))))))
-    (or size 0)))
+  (or (file-attribute-size (file-attributes (expand-file-name file))) 0))
 
 (defun dired-video-thumbnail--get-file-date (file)
   "Return modification time for FILE as a float."
@@ -658,10 +685,10 @@ Results are cached."
               dired-video-thumbnail--filter-size-max)
       (push (format "size:%s-%s"
                     (if dired-video-thumbnail--filter-size-min
-                        (format "%.0fMB" (/ dired-video-thumbnail--filter-size-min (* 1024.0 1024.0)))
+                        (file-size-human-readable dired-video-thumbnail--filter-size-min)
                       "0")
                     (if dired-video-thumbnail--filter-size-max
-                        (format "%.0fMB" (/ dired-video-thumbnail--filter-size-max (* 1024.0 1024.0)))
+                        (file-size-human-readable dired-video-thumbnail--filter-size-max)
                       "∞"))
             filters))
     (if filters
@@ -940,25 +967,8 @@ LOCAL-MARKS is a hash table of locally marked files (for subdirectory files)."
                 (dired-video-thumbnail--sort-videos filtered)))
         (setq dired-video-thumbnail--source-dir source-dir)
         (setq dired-video-thumbnail--dired-buffer dired-buf)
-        ;; Header with sort/filter info
-        (let* ((recursive-info (if dired-video-thumbnail--recursive " [recursive]" ""))
-               (sort-info (format "[%s %s]"
-                                  dired-video-thumbnail--sort-by
-                                  (if (eq dired-video-thumbnail--sort-order 'ascending) "↑" "↓")))
-               (filter-info (dired-video-thumbnail--format-active-filters))
-               (showing (length dired-video-thumbnail--current-videos))
-               (total (length dired-video-thumbnail--all-videos)))
-          (insert (propertize (format "Video Thumbnails: %s%s  %s%s\n"
-                                      (abbreviate-file-name source-dir)
-                                      recursive-info
-                                      sort-info
-                                      (if (string-empty-p filter-info)
-                                          ""
-                                        (format "  %s" filter-info)))
-                              'face 'header-line))
-          (insert (propertize (format "Showing %d of %d videos | s: sort | /: filter | R: toggle recursive | w: toggle wrap | q: quit\n\n"
-                                      showing total)
-                              'face 'shadow)))
+        ;; The gallery state (counts, sort, filters, recursive mode) is
+        ;; shown in the header line, so the buffer holds only thumbnails.
         ;; Insert thumbnails
         (if dired-video-thumbnail-wrap-display
             ;; Wrap display mode - just insert thumbnails with spaces, let them wrap

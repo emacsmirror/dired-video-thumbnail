@@ -352,12 +352,65 @@
   (let ((dired-video-thumbnail--filter-name nil)
         (dired-video-thumbnail--filter-duration-min nil)
         (dired-video-thumbnail--filter-duration-max nil)
-        (dired-video-thumbnail--filter-size-min (* 10 1024 1024))  ; 10MB
-        (dired-video-thumbnail--filter-size-max (* 100 1024 1024))) ; 100MB
+        (dired-video-thumbnail--filter-size-min (* 10 1024 1024))  ; 10M
+        (dired-video-thumbnail--filter-size-max (* 100 1024 1024))) ; 100M
     (let ((result (dired-video-thumbnail--format-active-filters)))
       (should (string-match-p "size:" result))
-      (should (string-match-p "10MB" result))
-      (should (string-match-p "100MB" result)))))
+      (should (string-match-p "10M" result))
+      (should (string-match-p "100M" result)))))
+
+;;; Tests for the enhanced header line
+
+(ert-deftest dired-video-thumbnail-test-format-directory ()
+  "Test the header line directory formatting."
+  (let ((dired-video-thumbnail--source-dir "/tmp/videos/"))
+    (should (string= (dired-video-thumbnail--format-directory
+                      "/tmp/videos/sub/a.mp4")
+                     (abbreviate-file-name "/tmp/videos/sub/")))
+    (should (string= (dired-video-thumbnail--format-directory nil)
+                     (abbreviate-file-name "/tmp/videos/")))
+    (let ((dired-video-thumbnail--source-dir nil))
+      (should (string= (dired-video-thumbnail--format-directory nil) "")))))
+
+(ert-deftest dired-video-thumbnail-test-header-line ()
+  "Test the enhanced header line contents."
+  (with-temp-buffer
+    (setq dired-video-thumbnail--all-videos
+          '("/tmp/v/a.mp4" "/tmp/v/b.mp4" "/tmp/v/c.mp4"))
+    (setq dired-video-thumbnail--current-videos
+          '("/tmp/v/a.mp4" "/tmp/v/b.mp4"))
+    (setq dired-video-thumbnail--source-dir "/tmp/v/")
+    (setq dired-video-thumbnail--sort-by 'name)
+    (setq dired-video-thumbnail--sort-order 'ascending)
+    (setq dired-video-thumbnail--filter-name "a")
+    (setq dired-video-thumbnail--filter-duration-min nil)
+    (setq dired-video-thumbnail--filter-duration-max nil)
+    (setq dired-video-thumbnail--filter-size-min nil)
+    (setq dired-video-thumbnail--filter-size-max nil)
+    (setq dired-video-thumbnail--local-marks (make-hash-table :test 'equal))
+    (setq dired-video-thumbnail--marked-set (make-hash-table :test 'equal))
+    (puthash "/tmp/v/a.mp4" t dired-video-thumbnail--marked-set)
+    (setq dired-video-thumbnail--marked-count nil)
+    (insert "thumb")
+    (put-text-property (point-min) (point-max)
+                       'dired-video-thumbnail-file "/tmp/v/a.mp4")
+    (goto-char (point-min))
+    (let ((dired-video-thumbnail--video-info-cache
+           (make-hash-table :test 'equal)))
+      (puthash "/tmp/v/a.mp4" '(:width 1920 :height 1080 :duration 125)
+               dired-video-thumbnail--video-info-cache)
+      (let ((header (dired-video-thumbnail--header-line)))
+        (should (string-match-p "\\[2/3 videos\\]" header))
+        (should (string-match-p "\\[1 marked\\]" header))
+        (should (string-match-p "a\\.mp4" header))
+        (should (string-match-p "1920x1080" header))
+        (should (string-match-p "2:05" header))
+        (should (string-match-p "\\[name <\\]" header))
+        (should (string-match-p "name:/a/" header))))
+    ;; Recursive galleries are flagged in the header.
+    (let ((dired-video-thumbnail--recursive t))
+      (should (string-match-p "\\[recursive\\]"
+                              (dired-video-thumbnail--header-line))))))
 
 ;;; Tests for marking helpers
 

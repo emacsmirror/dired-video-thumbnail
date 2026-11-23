@@ -17,7 +17,7 @@
 - *Async generation* - Emacs remains responsive while thumbnails are generated in the background
 - *Dired integration* - Marks sync bidirectionally with the associated dired buffer
 - *Visual mark indication* - Marked thumbnails display a coloured border (like =image-dired=)
-- *Dynamic header line* - Shows filename, dimensions, duration, and file size for the current video
+- *Dynamic header line* - Shows video counts, marked count, directory, filename, file size, dimensions, duration, sort order, and active filters
 - *Click to play* - Open videos in your preferred external player
 - *Cross-platform* - Works on Linux, macOS, and Windows
 - *Resizable thumbnails* - Adjust thumbnail size on the fly
@@ -156,15 +156,20 @@ Several keys open submenus with additional options:
 
 * Header Line
 
-As you navigate between thumbnails, the header line dynamically displays information about the current video:
+As you navigate between thumbnails, the header line dynamically displays the state of the gallery and information about the current video:
 
-- *Mark indicator* - A red =*= if the video is marked
-- *Filename* - The video filename in bold
+- *Video counts* - The number of visible videos (e.g., =[12 videos]=), or shown/total when a filter is active (e.g., =[3/12 videos]=)
+- *Marked count* - The number of marked videos (e.g., =[2 marked]=), shown only when at least one is marked
+- *Directory* - The directory containing the current video, abbreviated
+- *Filename* - The video filename
+- *File size* - Human-readable size (e.g., =45M=)
 - *Dimensions* - Video resolution (e.g., =1920x1080=)
 - *Duration* - Video length (e.g., =5:32= or =1:23:45=)
-- *File size* - Size in MB (e.g., =45.2 MB=)
+- *Sort order* - Current sort criteria and direction (e.g., =[name <]=)
+- *Filters* - Active name, duration and size filters
+- *Recursive indicator* - =[recursive]= when browsing subdirectories
 
-The header also shows current sort settings (e.g., =[name ↑]=), active filters, and a =[recursive]= indicator when browsing subdirectories.
+The buffer itself contains only thumbnails; all gallery state lives in the header line.
 
 * Keybindings
 
