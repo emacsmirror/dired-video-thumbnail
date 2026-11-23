@@ -660,6 +660,38 @@
         (should (= (dired-video-thumbnail--position-of-file "/tmp/b.mp4") pos2))
         (should-not (dired-video-thumbnail--position-of-file "/tmp/c.mp4"))))))
 
+;;; Tests for navigation helpers
+
+(ert-deftest dired-video-thumbnail-test-nearest-file-name ()
+  "Test finding the nearest thumbnail property."
+  (with-temp-buffer
+    (insert "one two")
+    (put-text-property 1 4 'dired-video-thumbnail-file "/tmp/a.mp4")
+    (put-text-property 5 8 'dired-video-thumbnail-file "/tmp/b.mp4")
+    (should (equal (dired-video-thumbnail--nearest-file-name 2) "/tmp/a.mp4"))
+    (should (equal (dired-video-thumbnail--nearest-file-name 6) "/tmp/b.mp4"))
+    ;; A gap belongs to the preceding thumbnail.
+    (should (equal (dired-video-thumbnail--nearest-file-name 4) "/tmp/a.mp4"))
+    ;; At the end of the buffer, the last thumbnail is found.
+    (should (equal (dired-video-thumbnail--nearest-file-name 8) "/tmp/b.mp4"))))
+
+(ert-deftest dired-video-thumbnail-test-snap-to-thumbnail ()
+  "Test snapping point from a gap to the nearest thumbnail."
+  (with-temp-buffer
+    (insert "one two")
+    (put-text-property 1 4 'dired-video-thumbnail-file "/tmp/a.mp4")
+    (put-text-property 5 8 'dired-video-thumbnail-file "/tmp/b.mp4")
+    (goto-char 4)
+    (dired-video-thumbnail--snap-to-thumbnail)
+    (should (= (point) 1))
+    (goto-char 8)
+    (dired-video-thumbnail--snap-to-thumbnail)
+    (should (= (point) 5))
+    ;; Point already on a thumbnail is left alone.
+    (goto-char 6)
+    (dired-video-thumbnail--snap-to-thumbnail)
+    (should (= (point) 6))))
+
 ;;; Tests for file operations
 
 (ert-deftest dired-video-thumbnail-test-drop-from-state ()

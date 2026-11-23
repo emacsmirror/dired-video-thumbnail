@@ -13,6 +13,10 @@ project's main git repository: [[https://github.com/captainflasmr/dired-video-th
 
 ** Unreleased
 
+Recentering and nearest-thumbnail navigation
+
+`C-l` now re-centres the thumbnail grid around the video at point, cycling between centre, top and bottom like `recenter-top-bottom`. Snapping point to a thumbnail now uses property-change boundaries and a nearest-thumbnail search, so point always lands on a real video even in gaps between rows.
+
 Trash, delete-and-next and move-to-directory
 
 Deleting a video now moves it to the system trash instead of removing it permanently. `C-d` deletes the video at point and stays on the next thumbnail, removing just that thumbnail from the grid without a full refresh. `v` moves the marked videos (or the video at point) to a target directory, creating it when needed and confirming before overwriting existing files. The new =dired-video-thumbnail-auto-accept= option skips these confirmations. Deleting now also removes files from the buffer's master list, so they no longer reappear after a refresh.

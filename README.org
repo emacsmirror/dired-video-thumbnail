@@ -196,6 +196,7 @@ In the =*Video Thumbnails*= buffer:
 | =<left>=  | ~dired-video-thumbnail-backward~     | Move to previous thumbnail        |
 | =<up>=    | ~dired-video-thumbnail-previous-row~ | Move up one row                   |
 | =<down>=  | ~dired-video-thumbnail-next-row~     | Move down one row                 |
+| =C-l=     | ~dired-video-thumbnail-recenter-top-bottom~ | Centre the grid around the current video |
 | =d=       | ~dired-video-thumbnail-goto-dired~   | Switch to associated dired buffer |
 | =q=       | ~quit-window~                        | Close the thumbnail buffer        |
 | =Q=       | ~dired-video-thumbnail-quit-and-kill~| Quit and kill the buffer          |

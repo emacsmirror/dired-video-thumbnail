@@ -1952,7 +1952,8 @@ Accepts formats like: 90, 1:30, 1:30:00"
     (princ "  RET, SPC, o  Play video at point\n")
     (princ "  n, →         Next thumbnail\n")
     (princ "  p, ←         Previous thumbnail\n")
-    (princ "  ↑, ↓         Previous/next row\n\n")
+    (princ "  ↑, ↓         Previous/next row\n")
+    (princ "  C-l          Centre the grid around the video\n\n")
     (princ "Marking:\n")
     (princ "  m            Mark video\n")
     (princ "  u            Unmark video\n")
@@ -2070,6 +2071,7 @@ Accepts formats like: 90, 1:30, 1:30:00"
     (define-key map (kbd "<left>") #'dired-video-thumbnail-backward)
     (define-key map (kbd "<up>") #'dired-video-thumbnail-previous-row)
     (define-key map (kbd "<down>") #'dired-video-thumbnail-next-row)
+    (define-key map (kbd "C-l") #'dired-video-thumbnail-recenter-top-bottom)
     ;; Sorting commands (s as prefix)
     (define-key map (kbd "s") dired-video-thumbnail-sort-map)
     (define-key map (kbd "S") #'dired-video-thumbnail-sort)
@@ -2123,6 +2125,25 @@ Accepts formats like: 90, 1:30, 1:30:00"
         (dired-video-thumbnail-next)
         (setq current-col (dired-video-thumbnail--current-column))))))
 
+(defun dired-video-thumbnail-recenter-top-bottom (&optional arg)
+  "Re-centre the thumbnail grid around the video at point.
+Cycles the current thumbnail's row between centre, top and bottom,
+like `recenter-top-bottom' does in a text buffer, so the focused
+video can be re-oriented after navigating the grid.
+
+With prefix ARG, behave exactly like `recenter-top-bottom' with that
+argument: a numeric ARG puts point's row ARG lines from the window
+top, while plain \\[universal-argument] always centres.
+
+When point is not on a thumbnail, first move to the nearest one, so
+the grid always re-orients around a real video."
+  (interactive "P")
+  (unless (dired-video-thumbnail--at-thumbnail-p)
+    (when-let* ((file (dired-video-thumbnail--nearest-file-name))
+                (pos (dired-video-thumbnail--position-of-file file)))
+      (goto-char pos)))
+  (recenter-top-bottom arg))
+
 (defun dired-video-thumbnail--current-column ()
   "Return the column index (0-based) of the current thumbnail."
   (let ((index 0)
@@ -2140,26 +2161,40 @@ Accepts formats like: 90, 1:30, 1:30:00"
   "Return non-nil if point is at a thumbnail."
   (get-text-property (point) 'dired-video-thumbnail-file))
 
+(defun dired-video-thumbnail--prop-search (pos forward)
+  "Find the nearest `dired-video-thumbnail-file' property near POS.
+Search forward when FORWARD is non-nil, otherwise backward.  Jumps
+between property-change boundaries (O(runs)) rather than scanning one
+character at a time.  Returns the property value, or nil if none."
+  (let ((p pos)
+        (found (get-text-property pos 'dired-video-thumbnail-file)))
+    (while (and (not found)
+                (if forward (< p (point-max)) (> p (point-min))))
+      (setq p (if forward
+                  (next-single-property-change
+                   p 'dired-video-thumbnail-file nil (point-max))
+                (previous-single-property-change
+                 p 'dired-video-thumbnail-file nil (point-min))))
+      (setq found (get-text-property p 'dired-video-thumbnail-file)))
+    found))
+
+(defun dired-video-thumbnail--nearest-file-name (&optional pos)
+  "Return the thumbnail file name at POS, or the nearest one.
+POS defaults to point.  If no thumbnail is exactly at POS, search
+backward first, then forward, so a gap after a thumbnail belongs to
+the preceding one."
+  (let ((pos (or pos (point))))
+    (or (get-text-property pos 'dired-video-thumbnail-file)
+        (dired-video-thumbnail--prop-search pos nil)
+        (dired-video-thumbnail--prop-search pos t))))
+
 (defun dired-video-thumbnail--snap-to-thumbnail ()
-  "Snap point to the nearest thumbnail if not already on one."
+  "Snap point to the nearest thumbnail if not already on one.
+The nearest preceding thumbnail is preferred when point is in a gap."
   (unless (dired-video-thumbnail--at-thumbnail-p)
-    (let ((next (next-single-property-change (point) 'dired-video-thumbnail-file))
-          (prev (previous-single-property-change (point) 'dired-video-thumbnail-file)))
-      (cond
-       ;; If we have both, go to the closer one
-       ((and next prev)
-        (if (< (- next (point)) (- (point) prev))
-            (goto-char next)
-          (goto-char prev)
-          ;; Make sure we're on the thumbnail, not just after it
-          (unless (dired-video-thumbnail--at-thumbnail-p)
-            (goto-char (previous-single-property-change (point) 'dired-video-thumbnail-file (point-min))))))
-       (next (goto-char next))
-       (prev
-        (goto-char prev)
-        (unless (dired-video-thumbnail--at-thumbnail-p)
-          (let ((start (previous-single-property-change (point) 'dired-video-thumbnail-file)))
-            (when start (goto-char start)))))))))
+    (when-let* ((file (dired-video-thumbnail--nearest-file-name))
+                (pos (dired-video-thumbnail--position-of-file file)))
+      (goto-char pos))))
 
 ;;; Major mode
 
