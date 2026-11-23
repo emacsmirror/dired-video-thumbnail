@@ -118,6 +118,27 @@ Set to nil to use `browse-url-xdg-open' or system default."
   :type '(repeat string)
   :group 'dired-video-thumbnail)
 
+(defcustom dired-video-thumbnail-minimum-file-size 100
+  "Minimum file size in bytes for a video to be included.
+Files smaller than this are assumed to be corrupt or empty and are
+silently excluded from the thumbnail display.  Set to 0 to disable
+this check."
+  :type 'natnum
+  :safe #'natnump
+  :group 'dired-video-thumbnail)
+
+(defcustom dired-video-thumbnail-validate-headers nil
+  "Whether to check video file magic bytes before including them.
+When non-nil, each candidate file is opened briefly to verify that its
+first few bytes match a known video container signature.  This catches
+files that have a video extension but contain garbage or are
+truncated.  The check reads only the first 12 bytes per file, so the
+overhead is small.  Set to nil (the default) if you trust all files in
+your directories or want maximum speed."
+  :type 'boolean
+  :safe #'booleanp
+  :group 'dired-video-thumbnail)
+
 (defcustom dired-video-thumbnail-ffmpeg-program "ffmpeg"
   "Path to ffmpeg executable."
   :type 'string
@@ -391,11 +412,66 @@ Nil means it needs recomputation; see
   (unless (file-directory-p dired-video-thumbnail-cache-dir)
     (make-directory dired-video-thumbnail-cache-dir t)))
 
+(defun dired-video-thumbnail--valid-header-p (file)
+  "Return non-nil if FILE begins with a recognised video signature.
+Reads only the first 12 bytes.  Recognised containers: ISO BMFF
+\(MP4/MOV/M4V/3GP), Matroska/WebM, AVI, FLV, Ogg, ASF/WMV, and MPEG
+program or elementary streams."
+  (condition-case nil
+      (with-temp-buffer
+        (set-buffer-multibyte nil)
+        (insert-file-contents-literally file nil 0 12)
+        (let ((bytes (buffer-string)))
+          (when (>= (length bytes) 4)
+            (let ((b0 (aref bytes 0))
+                  (b1 (aref bytes 1))
+                  (b2 (aref bytes 2))
+                  (b3 (aref bytes 3)))
+              (or
+               ;; ISO BMFF: "ftyp" at offset 4 (MP4, MOV, M4V, 3GP).
+               (and (>= (length bytes) 8)
+                    (= (aref bytes 4) ?f)
+                    (= (aref bytes 5) ?t)
+                    (= (aref bytes 6) ?y)
+                    (= (aref bytes 7) ?p))
+               ;; Matroska / WebM: EBML header.
+               (and (= b0 #x1A) (= b1 #x45) (= b2 #xDF) (= b3 #xA3))
+               ;; AVI: "RIFF" .... "AVI ".
+               (and (>= (length bytes) 12)
+                    (= b0 ?R) (= b1 ?I) (= b2 ?F) (= b3 ?F)
+                    (= (aref bytes 8) ?A)
+                    (= (aref bytes 9) ?V)
+                    (= (aref bytes 10) ?I)
+                    (= (aref bytes 11) ?\s))
+               ;; FLV.
+               (and (= b0 ?F) (= b1 ?L) (= b2 ?V))
+               ;; Ogg (OGV).
+               (and (= b0 ?O) (= b1 ?g) (= b2 ?g) (= b3 ?S))
+               ;; ASF / WMV.
+               (and (>= (length bytes) 8)
+                    (= b0 #x30) (= b1 #x26) (= b2 #xB2) (= b3 #x75)
+                    (= (aref bytes 4) #x8E) (= (aref bytes 5) #x66)
+                    (= (aref bytes 6) #xCF) (= (aref bytes 7) #x11))
+               ;; MPEG program stream or elementary stream start code.
+               (and (= b0 #x00) (= b1 #x00) (= b2 #x01)
+                    (memq b3 '(#xBA #xB3))))))))
+    (file-error nil)))
+
 (defun dired-video-thumbnail--video-p (file)
-  "Return non-nil if FILE is a video file."
+  "Return non-nil if FILE is a valid video file.
+Checks the extension, the minimum file size, and optionally the
+container magic bytes (see `dired-video-thumbnail-validate-headers')."
   (and (file-regular-p file)
        (member (downcase (or (file-name-extension file) ""))
-               dired-video-thumbnail-video-extensions)))
+               dired-video-thumbnail-video-extensions)
+       (or (null dired-video-thumbnail-minimum-file-size)
+           (zerop dired-video-thumbnail-minimum-file-size)
+           (let ((attrs (file-attributes file)))
+             (and attrs
+                  (>= (file-attribute-size attrs)
+                      dired-video-thumbnail-minimum-file-size))))
+       (or (not dired-video-thumbnail-validate-headers)
+           (dired-video-thumbnail--valid-header-p file))))
 
 (defun dired-video-thumbnail--find-videos (directory &optional recursive)
   "Find all video files in DIRECTORY.

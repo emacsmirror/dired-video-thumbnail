@@ -27,6 +27,7 @@
 - *Recursive search* - Browse videos across subdirectories with optional auto-recursive mode
 - *Per-directory settings* - Sort order, filters and thumbnail height are remembered per directory in =.dir-locals.el=
 - *Per-directory galleries* - Each directory gets its own thumbnail buffer, so several galleries can stay open at once
+- *File validation* - Empty or corrupt files are ignored by minimum size, with an optional container signature check
 - *Transient menu* - Comprehensive command menu accessible via =.= or =C-c .=
 
 * Screenshots / Demos
@@ -427,6 +428,20 @@ Control recursive directory searching behaviour:
 #+end_src
 
 When =dired-video-thumbnail-auto-recursive= is enabled and the current directory has no video files but has subdirectories, the package automatically searches recursively.
+
+** File Validation
+
+Files smaller than =dired-video-thumbnail-minimum-file-size= bytes (100 by default) are assumed to be corrupt or empty and are excluded from the gallery. Set it to 0 to disable the check.
+
+#+begin_src emacs-lisp
+(setq dired-video-thumbnail-minimum-file-size 100)  ;; Bytes (default); 0 disables
+#+end_src
+
+For a stricter check, enable magic-byte validation. Each candidate file's first 12 bytes are compared against known video container signatures (MP4/MOV/M4V/3GP, Matroska/WebM, AVI, FLV, Ogg, ASF/WMV and MPEG), so a file with a video extension but garbage content is skipped:
+
+#+begin_src emacs-lisp
+(setq dired-video-thumbnail-validate-headers t)
+#+end_src
 
 ** Automatic Confirmation
 

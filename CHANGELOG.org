@@ -13,6 +13,10 @@ project's main git repository: [[https://github.com/captainflasmr/dired-video-th
 
 ** Unreleased
 
+File validation
+
+Files smaller than `dired-video-thumbnail-minimum-file-size` (100 bytes by default) are excluded as corrupt or empty; set it to 0 to disable the check. The optional `dired-video-thumbnail-validate-headers` compares each candidate's first 12 bytes against known video container signatures (ISO BMFF/MP4/MOV/M4V/3GP, Matroska/WebM, AVI, FLV, Ogg, ASF/WMV and MPEG program/elementary streams) so files with a video extension but garbage content are skipped.
+
 Per-directory galleries
 
 Each directory now gets its own thumbnail buffer, named `*Video Thumbnails: DIRECTORY*`, instead of sharing one global buffer. Opening a second directory leaves the first gallery intact, reopening a directory reuses its gallery and remembered settings, and background thumbnail updates redraw the file in every gallery that shows it. Galleries with the same directory basename get a unique suffix.

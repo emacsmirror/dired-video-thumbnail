@@ -31,6 +31,12 @@
       (when (derived-mode-p 'dired-video-thumbnail-mode)
         (kill-buffer buf)))))
 
+(defun dired-video-thumbnail-test-write-bytes (file bytes)
+  "Write the unibyte BYTES (a list) to FILE."
+  (with-temp-file file
+    (set-buffer-multibyte nil)
+    (insert (apply #'unibyte-string bytes))))
+
 ;;; Tests for utility functions
 
 (ert-deftest dired-video-thumbnail-test-video-p ()
@@ -44,11 +50,11 @@
     (unwind-protect
         (progn
           ;; Create dummy files
-          (write-region "" nil (expand-file-name "test.mp4" temp-dir))
-          (write-region "" nil (expand-file-name "test.avi" temp-dir))
-          (write-region "" nil (expand-file-name "test.mkv" temp-dir))
-          (write-region "" nil (expand-file-name "test.txt" temp-dir))
-          (write-region "" nil (expand-file-name "test" temp-dir))
+          (write-region (make-string 200 ?x) nil (expand-file-name "test.mp4" temp-dir))
+          (write-region (make-string 200 ?x) nil (expand-file-name "test.avi" temp-dir))
+          (write-region (make-string 200 ?x) nil (expand-file-name "test.mkv" temp-dir))
+          (write-region (make-string 200 ?x) nil (expand-file-name "test.txt" temp-dir))
+          (write-region (make-string 200 ?x) nil (expand-file-name "test" temp-dir))
 
           ;; Test video extensions
           (should (dired-video-thumbnail--video-p (expand-file-name "test.mp4" temp-dir)))
@@ -298,7 +304,7 @@
          (dired-video-thumbnail--info-attempts (make-hash-table :test 'equal)))
     (unwind-protect
         (progn
-          (write-region "" nil file)
+          (write-region (make-string 200 ?x) nil file)
           (should (dired-video-thumbnail--info-query-allowed-p file))
           (let ((mtime (file-attribute-modification-time
                         (file-attributes file))))
@@ -328,7 +334,7 @@
          (started nil))
     (unwind-protect
         (progn
-          (write-region "" nil file)
+          (write-region (make-string 200 ?x) nil file)
           (with-temp-buffer
             (dired-video-thumbnail-mode)
             (cl-letf (((symbol-function
@@ -369,8 +375,8 @@
         (progn
           ;; Create directory structure
           (make-directory subdir)
-          (write-region "" nil file1)
-          (write-region "" nil file2)
+          (write-region (make-string 200 ?x) nil file1)
+          (write-region (make-string 200 ?x) nil file2)
 
           ;; Non-recursive should find only top-level
           (let ((videos (dired-video-thumbnail--find-videos temp-dir nil)))
@@ -531,9 +537,9 @@
          (file3 (expand-file-name "c.mp4" temp-dir)))
     (unwind-protect
         (progn
-          (write-region "" nil file1)
-          (write-region "" nil file2)
-          (write-region "" nil file3)
+          (write-region (make-string 200 ?x) nil file1)
+          (write-region (make-string 200 ?x) nil file2)
+          (write-region (make-string 200 ?x) nil file3)
           (let ((dired-buf (dired-noselect temp-dir)))
             (unwind-protect
                 (with-temp-buffer
@@ -610,10 +616,10 @@
     (unwind-protect
         (progn
           (make-directory subdir)
-          (write-region "" nil file1)
-          (write-region "" nil file2)
-          (write-region "" nil file3)
-          (write-region "" nil outside)
+          (write-region (make-string 200 ?x) nil file1)
+          (write-region (make-string 200 ?x) nil file2)
+          (write-region (make-string 200 ?x) nil file3)
+          (write-region (make-string 200 ?x) nil outside)
           (let ((dired-buf (dired-noselect temp-dir)))
             (unwind-protect
                 (with-temp-buffer
@@ -764,8 +770,8 @@
          (dired-video-thumbnail-auto-accept t))
     (unwind-protect
         (progn
-          (write-region "" nil file1)
-          (write-region "" nil file2)
+          (write-region (make-string 200 ?x) nil file1)
+          (write-region (make-string 200 ?x) nil file2)
           ;; Mark only file1.
           (puthash file1 t dired-video-thumbnail--marked-set)
           (cl-letf (((symbol-function 'dired-video-thumbnail-refresh)
@@ -878,8 +884,8 @@
          (dbuf1 nil))
     (unwind-protect
         (progn
-          (write-region "" nil f1)
-          (write-region "" nil f2)
+          (write-region (make-string 200 ?x) nil f1)
+          (write-region (make-string 200 ?x) nil f2)
           (cl-letf (((symbol-function 'dired-video-thumbnail--generate-missing)
                      #'ignore))
             (dired dir1)
@@ -930,8 +936,8 @@
          (dired-video-thumbnail-cache-dir (expand-file-name "cache" dir)))
     (unwind-protect
         (progn
-          (write-region "" nil a)
-          (write-region "" nil b)
+          (write-region (make-string 200 ?x) nil a)
+          (write-region (make-string 200 ?x) nil b)
           (dired dir)
           (cl-letf (((symbol-function 'dired-video-thumbnail--generate-missing)
                      #'ignore))
@@ -941,7 +947,7 @@
                          (list a b)))
           ;; Change the directory contents externally.
           (delete-file b)
-          (write-region "" nil c)
+          (write-region (make-string 200 ?x) nil c)
           (cl-letf (((symbol-function 'dired-video-thumbnail--generate-missing)
                      #'ignore))
             (dired-video-thumbnail-re-scan))
@@ -964,7 +970,7 @@
          (dired-video-thumbnail-auto-accept t))
     (unwind-protect
         (progn
-          (write-region "" nil a)
+          (write-region (make-string 200 ?x) nil a)
           (dired dir)
           (cl-letf (((symbol-function 'dired-video-thumbnail--generate-missing)
                      #'ignore))
@@ -978,6 +984,84 @@
             (should-not (file-exists-p cache-path))))
       (dired-video-thumbnail-test-kill-galleries)
       (set-buffer origin)
+      (delete-directory dir t))))
+
+;;; Tests for file validation
+
+(ert-deftest dired-video-thumbnail-test-valid-header-p ()
+  "Test video container magic-byte detection."
+  (let* ((dir (make-temp-file "video-headers" t))
+         (mp4 (expand-file-name "a.mp4" dir))
+         (mkv (expand-file-name "a.mkv" dir))
+         (avi (expand-file-name "a.avi" dir))
+         (flv (expand-file-name "a.flv" dir))
+         (ogv (expand-file-name "a.ogv" dir))
+         (wmv (expand-file-name "a.wmv" dir))
+         (mpg (expand-file-name "a.mpg" dir))
+         (bad (expand-file-name "bad.mp4" dir)))
+    (unwind-protect
+        (progn
+          (dired-video-thumbnail-test-write-bytes
+           mp4 (append '(0 0 0 24 ?f ?t ?y ?p) (make-list 192 ?x)))
+          (dired-video-thumbnail-test-write-bytes
+           mkv (append '(#x1A #x45 #xDF #xA3) (make-list 196 ?x)))
+          (dired-video-thumbnail-test-write-bytes
+           avi (append '(?R ?I ?F ?F 0 0 0 0 ?A ?V ?I ?\s)
+                       (make-list 188 ?x)))
+          (dired-video-thumbnail-test-write-bytes
+           flv (append '(?F ?L ?V) (make-list 197 ?x)))
+          (dired-video-thumbnail-test-write-bytes
+           ogv (append '(?O ?g ?g ?S) (make-list 196 ?x)))
+          (dired-video-thumbnail-test-write-bytes
+           wmv (append '(#x30 #x26 #xB2 #x75 #x8E #x66 #xCF #x11)
+                       (make-list 192 ?x)))
+          (dired-video-thumbnail-test-write-bytes
+           mpg (append '(0 0 1 #xBA) (make-list 196 ?x)))
+          (dired-video-thumbnail-test-write-bytes bad (make-list 200 ?x))
+          (dolist (file (list mp4 mkv avi flv ogv wmv mpg))
+            (should (dired-video-thumbnail--valid-header-p file)))
+          (should-not (dired-video-thumbnail--valid-header-p bad)))
+      (delete-directory dir t))))
+
+(ert-deftest dired-video-thumbnail-test-video-p-validation ()
+  "Test minimum size and header validation in `--video-p'."
+  (let* ((dir (make-temp-file "video-validation" t))
+         (good (expand-file-name "good.mp4" dir))
+         (garbage (expand-file-name "garbage.mp4" dir))
+         (tiny (expand-file-name "tiny.mp4" dir))
+         (dired-video-thumbnail-minimum-file-size 100)
+         (dired-video-thumbnail-validate-headers nil))
+    (unwind-protect
+        (progn
+          (dired-video-thumbnail-test-write-bytes
+           good (append '(0 0 0 24 ?f ?t ?y ?p) (make-list 192 ?x)))
+          (dired-video-thumbnail-test-write-bytes garbage (make-list 200 ?x))
+          (dired-video-thumbnail-test-write-bytes
+           tiny (append '(0 0 0 24 ?f ?t ?y ?p) (make-list 42 ?x)))
+          ;; Size check.
+          (should (dired-video-thumbnail--video-p good))
+          (should-not (dired-video-thumbnail--video-p tiny))
+          (let ((dired-video-thumbnail-minimum-file-size 0))
+            (should (dired-video-thumbnail--video-p tiny)))
+          ;; Header check.
+          (should (dired-video-thumbnail--video-p garbage))
+          (let ((dired-video-thumbnail-validate-headers t))
+            (should (dired-video-thumbnail--video-p good))
+            (should-not (dired-video-thumbnail--video-p garbage))))
+      (delete-directory dir t))))
+
+(ert-deftest dired-video-thumbnail-test-find-videos-minimum-size ()
+  "Test that tiny files are excluded from the video list."
+  (let* ((dir (make-temp-file "video-min-size" t))
+         (small (expand-file-name "small.mp4" dir))
+         (large (expand-file-name "large.mp4" dir))
+         (dired-video-thumbnail-minimum-file-size 100))
+    (unwind-protect
+        (progn
+          (write-region (make-string 10 ?x) nil small)
+          (write-region (make-string 200 ?x) nil large)
+          (should (equal (dired-video-thumbnail--find-videos dir nil)
+                         (list large))))
       (delete-directory dir t))))
 
 ;;; Run all tests
