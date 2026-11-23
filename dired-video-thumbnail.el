@@ -167,6 +167,40 @@ This is useful for video collections organised in year/category folders."
   "Face for the border around marked video thumbnails."
   :group 'dired-video-thumbnail)
 
+(defface dired-video-thumbnail-current-thumbnail
+  '((t (:box (:line-width -5))))
+  "Face used to highlight the currently selected thumbnail.
+The outline is thick by default (5 pixels) and is drawn inside the
+thumbnail, so highlighting a different thumbnail while navigating
+never changes the thumbnail sizes or re-flows the grid.  Its colour
+follows the active theme: the background colour of the `highlight'
+face is used, so the outline looks like the theme's own highlight,
+just thicker.  Customise this face to change the width, or give
+:box an explicit :color to pin a fixed colour.  Set
+`dired-video-thumbnail-highlight-current-thumbnail' to nil to
+disable the highlight entirely."
+  :group 'dired-video-thumbnail)
+
+(defcustom dired-video-thumbnail-highlight-current-thumbnail t
+  "Whether to highlight the currently selected thumbnail.
+When non-nil, the thumbnail at point is outlined using the
+`dired-video-thumbnail-current-thumbnail' face, making the selection
+clear regardless of the current theme."
+  :type 'boolean
+  :safe #'booleanp
+  :group 'dired-video-thumbnail)
+
+(defcustom dired-video-thumbnail-highlight-cursor t
+  "Whether to colour the cursor in the thumbnail buffer.
+When non-nil, the cursor is recoloured to match the
+`dired-video-thumbnail-current-thumbnail' highlight, making it easier
+to spot.  The colour is derived from that face's :box attribute, so
+customising the face also changes the cursor.  Applied buffer-locally,
+so only thumbnail buffers are affected."
+  :type 'boolean
+  :safe #'booleanp
+  :group 'dired-video-thumbnail)
+
 (defface dired-video-thumbnail-header-info
   '((((class color) (background light)) (:foreground "black"))
     (((class color) (background dark)) (:foreground "white"))
@@ -992,7 +1026,9 @@ generating in the background does not lose its marked appearance."
                    (dired-video-thumbnail--file-marked-p video-file)))))
             (goto-char (or (next-single-property-change (point)
                                                         'dired-video-thumbnail-file)
-                           (point-max)))))))))
+                           (point-max))))))
+      ;; A replaced region can swallow the highlight overlay; redraw it.
+      (dired-video-thumbnail--update-current-highlight))))
 
 (defun dired-video-thumbnail--refresh-thumbnail (video-file)
   "Redraw the thumbnail for VIDEO-FILE in place.
@@ -1033,6 +1069,82 @@ display after a bulk mark change."
                    (marked (dired-video-thumbnail--file-marked-p file)))
               (delete-region start end)
               (dired-video-thumbnail--insert-thumbnail file state marked))))))))
+
+;;; Current-thumbnail highlight
+
+(defvar-local dired-video-thumbnail--current-overlay nil
+  "Overlay highlighting the currently selected thumbnail.")
+
+(defun dired-video-thumbnail--outline-box ()
+  "Return the :box specification for the current-thumbnail outline.
+The line width comes from the :box attribute of
+`dired-video-thumbnail-current-thumbnail' (default -5, i.e. five
+pixels drawn inside the thumbnail so the grid never re-flows), so
+customising the face adjusts the thickness.  The colour is the
+explicit :color of that :box when set, so customising the face still
+works; otherwise the background colour of the `highlight' face is
+used, so the outline matches the active theme -- the theme's own
+highlight, just thicker.  Falls back to orange on light backgrounds
+and yellow on dark ones when no usable colour is available."
+  (let* ((box (face-attribute 'dired-video-thumbnail-current-thumbnail :box))
+         (width (let ((w (and (consp box) (plist-get box :line-width))))
+                  (cond ((numberp w) w)
+                        ((consp w) w)
+                        (t -5))))
+         (explicit (cond ((stringp box) box)
+                         ((consp box) (plist-get box :color))))
+         (color (or (and (stringp explicit) explicit)
+                    (let ((bg (ignore-errors
+                                (face-attribute 'highlight :background nil t))))
+                      (cond ((stringp bg) bg)
+                            ((eq (frame-parameter nil 'background-mode) 'dark)
+                             "yellow")
+                            (t "dark orange"))))))
+    (list :line-width width :color color)))
+
+(defun dired-video-thumbnail--update-current-highlight ()
+  "Outline the thumbnail at point with `dired-video-thumbnail-current-thumbnail'.
+The highlight is an overlay on the character carrying the image, so
+it is redrawn as point moves.  The outline colour follows the active
+theme (see `dired-video-thumbnail--outline-box').  Installed on
+`post-command-hook' in thumbnail buffers and called directly after a
+refresh."
+  (when (derived-mode-p 'dired-video-thumbnail-mode)
+    ;; Drop the previous overlay.  This also clears a stale overlay left
+    ;; behind by `erase-buffer' during a refresh.
+    (when (overlayp dired-video-thumbnail--current-overlay)
+      (delete-overlay dired-video-thumbnail--current-overlay)
+      (setq dired-video-thumbnail--current-overlay nil))
+    (when (and dired-video-thumbnail-highlight-current-thumbnail
+               (get-text-property (point) 'dired-video-thumbnail-file)
+               (< (point) (point-max)))
+      (let ((ov (make-overlay (point) (1+ (point)) nil t)))
+        (overlay-put ov 'face
+                     (list 'dired-video-thumbnail-current-thumbnail
+                           (list :box (dired-video-thumbnail--outline-box))))
+        (setq dired-video-thumbnail--current-overlay ov)))))
+
+(defun dired-video-thumbnail--cursor-remap ()
+  "Return a `face-remapping-alist' entry colouring the cursor like the outline.
+Uses the colour resolved by `dired-video-thumbnail--outline-box', so
+the cursor always matches the current-thumbnail highlight.  Returns
+nil if no colour is available."
+  (let ((color (plist-get (dired-video-thumbnail--outline-box) :color)))
+    (when (stringp color)
+      `(cursor . (:background ,color)))))
+
+(defun dired-video-thumbnail--setup-cursor ()
+  "Recolour the cursor, buffer-locally, to match the current-thumbnail highlight."
+  (let ((remap (and dired-video-thumbnail-highlight-cursor
+                    (dired-video-thumbnail--cursor-remap)))
+        ;; Copy before deleting so the global `face-remapping-alist'
+        ;; (which may not yet have a buffer-local binding here) is never
+        ;; destructively modified by `assq-delete-all'.
+        (base (copy-sequence face-remapping-alist)))
+    (setq-local face-remapping-alist
+                (if remap
+                    (cons remap (assq-delete-all 'cursor base))
+                  (assq-delete-all 'cursor base)))))
 
 (defun dired-video-thumbnail--display-buffer (videos source-dir dired-buf &optional recursive)
   "Display VIDEOS in a thumbnail buffer.
@@ -1125,7 +1237,8 @@ LOCAL-MARKS is a hash table of locally marked files (for subdirectory files)."
               (insert " "))))
         (goto-char (point-min))
         ;; Move to first thumbnail
-        (dired-video-thumbnail--snap-to-thumbnail)))
+        (dired-video-thumbnail--snap-to-thumbnail)
+        (dired-video-thumbnail--update-current-highlight)))
     ;; A refresh driven by a background callback runs with the
     ;; thumbnail buffer current; do not steal focus from the user then.
     (unless (eq (current-buffer) buf)
@@ -1966,7 +2079,10 @@ Accepts formats like: 90, 1:30, 1:30:00"
   (setq buffer-read-only t)
   (setq truncate-lines t)
   (setq header-line-format '(:eval (dired-video-thumbnail--header-line)))
-  (add-hook 'post-command-hook #'dired-video-thumbnail--snap-to-thumbnail nil t))
+  (add-hook 'post-command-hook #'dired-video-thumbnail--snap-to-thumbnail nil t)
+  (add-hook 'post-command-hook
+            #'dired-video-thumbnail--update-current-highlight nil t)
+  (dired-video-thumbnail--setup-cursor))
 
 ;;; Cleanup
 

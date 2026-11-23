@@ -17,6 +17,7 @@
 - *Async generation* - Emacs remains responsive while thumbnails are generated in the background
 - *Dired integration* - Marks sync bidirectionally with the associated dired buffer
 - *Visual mark indication* - Marked thumbnails display a coloured border (like =image-dired=)
+- *Current-thumbnail highlight* - The thumbnail at point is outlined with a theme-aware border, and the cursor is recoloured to match
 - *Dynamic header line* - Shows video counts, marked count, directory, filename, file size, dimensions, duration, sort order, and active filters
 - *Click to play* - Open videos in your preferred external player
 - *Cross-platform* - Works on Linux, macOS, and Windows
@@ -354,6 +355,19 @@ Marked thumbnails are indicated with a coloured border. Customise the border wid
 
 ;; Change border colour via the face
 (set-face-foreground 'dired-video-thumbnail-mark "blue")
+#+end_src
+
+** Current-Thumbnail Highlight
+
+The thumbnail at point is outlined with the =dired-video-thumbnail-current-thumbnail= face, and the cursor is recoloured to match. The outline is drawn inside the thumbnail, so navigating never re-flows the grid. Its colour follows the active theme's =highlight= background unless the face's =:box= sets an explicit =:color=.
+
+#+begin_src emacs-lisp
+(setq dired-video-thumbnail-highlight-current-thumbnail t) ;; Outline the current thumbnail
+(setq dired-video-thumbnail-highlight-cursor t)            ;; Recolour the cursor to match
+
+;; Pin a fixed outline colour instead of following the theme
+(set-face-attribute 'dired-video-thumbnail-current-thumbnail nil
+                    :box '(:line-width -5 :color "orange"))
 #+end_src
 
 ** Default Sorting

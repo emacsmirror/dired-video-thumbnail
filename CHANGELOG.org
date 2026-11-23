@@ -13,6 +13,10 @@ project's main git repository: [[https://github.com/captainflasmr/dired-video-th
 
 ** Unreleased
 
+Current-thumbnail highlight
+
+The thumbnail at point is now outlined with the new `dired-video-thumbnail-current-thumbnail' face, and the cursor is recoloured to match. The outline is drawn inside the thumbnail so navigating never changes the thumbnail sizes or re-flows the grid, and its colour follows the active theme's `highlight' background unless the face pins an explicit colour. Both effects can be disabled with `dired-video-thumbnail-highlight-current-thumbnail' and `dired-video-thumbnail-highlight-cursor'.
+
 Asynchronous video metadata
 
 Video information (resolution and duration) is now queried with ffprobe asynchronously, up to four processes at a time, instead of one blocking `shell-command-to-string' call per file. Results fill the cache and update the header line as they arrive; buffers sorted or filtered by duration are re-sorted and re-filtered once the queue drains. Failed queries are retried at most three times per file version (tracked by modification time), and a rewritten file is queried again. Background refreshes no longer steal focus from the current window.

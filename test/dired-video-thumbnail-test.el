@@ -473,6 +473,47 @@
       (should (string-match-p "\\[recursive\\]"
                               (dired-video-thumbnail--header-line))))))
 
+;;; Tests for the current-thumbnail highlight
+
+(ert-deftest dired-video-thumbnail-test-outline-box ()
+  "Test the outline box specification derived from the face."
+  (let ((box (dired-video-thumbnail--outline-box)))
+    (should (numberp (plist-get box :line-width)))
+    (should (stringp (plist-get box :color)))))
+
+(ert-deftest dired-video-thumbnail-test-cursor-remap ()
+  "Test the cursor face remapping entry."
+  (let ((remap (dired-video-thumbnail--cursor-remap)))
+    (should (eq (car remap) 'cursor))
+    (should (stringp (plist-get (cdr remap) :background)))))
+
+(ert-deftest dired-video-thumbnail-test-update-current-highlight ()
+  "Test that the highlight overlay follows point."
+  (with-temp-buffer
+    (insert "thumb1 thumb2")
+    (put-text-property (point-min) (+ (point-min) 6)
+                       'dired-video-thumbnail-file "/tmp/a.mp4")
+    (put-text-property (+ (point-min) 7) (point-max)
+                       'dired-video-thumbnail-file "/tmp/b.mp4")
+    (dired-video-thumbnail-mode)
+    (goto-char (point-min))
+    (dired-video-thumbnail--update-current-highlight)
+    (should (overlayp dired-video-thumbnail--current-overlay))
+    (should (= (overlay-start dired-video-thumbnail--current-overlay)
+               (point-min)))
+    (should (eq (car (overlay-get dired-video-thumbnail--current-overlay
+                                  'face))
+                'dired-video-thumbnail-current-thumbnail))
+    ;; Moving off a thumbnail removes the highlight.
+    (goto-char (point-max))
+    (dired-video-thumbnail--update-current-highlight)
+    (should-not dired-video-thumbnail--current-overlay)
+    ;; Disabling the option leaves no overlay.
+    (goto-char (point-min))
+    (let ((dired-video-thumbnail-highlight-current-thumbnail nil))
+      (dired-video-thumbnail--update-current-highlight)
+      (should-not dired-video-thumbnail--current-overlay))))
+
 ;;; Tests for marking helpers
 
 (ert-deftest dired-video-thumbnail-test-get-dired-marked-set ()
